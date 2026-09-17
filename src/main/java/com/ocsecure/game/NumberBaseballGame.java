@@ -15,12 +15,11 @@ public final class NumberBaseballGame {
 
     public void play() {
         System.out.println("=== 숫자 야구 게임 (사람 vs 컴퓨터) ===");
-        System.out.println("0~9 중 중복 없는 숫자 4개로 비밀번호를 정합니다. 먼저 4 Strike를 맞추는 쪽이 승리합니다.\n");
+        System.out.println("0~9 중 중복 없는 숫자 4개로 당신만의 비밀번호를 마음속으로 정하세요.");
+        System.out.println("이 프로그램에는 당신의 비밀번호를 입력하지 않습니다. 컴퓨터가 추측을 내놓으면 당신이 직접 Strike/Ball을 판정해서 알려주세요.");
+        System.out.println("먼저 4 Strike를 받아내는 쪽이 승리합니다.\n");
 
         ComputerPlayer computer = new ComputerPlayer();
-        int[] playerSecret = readDigitsLoop("당신의 비밀번호 4자리를 입력하세요 (예: 1234): ");
-
-        System.out.println("\n비밀번호 설정이 완료되었습니다. 게임을 시작합니다!\n");
 
         int round = 1;
         while (true) {
@@ -35,8 +34,8 @@ public final class NumberBaseballGame {
             }
 
             int[] computerGuess = computer.nextGuess();
-            Judge.Result computerResult = Judge.evaluate(playerSecret, computerGuess);
-            System.out.println("[컴퓨터 추측] " + format(computerGuess) + " -> " + computerResult);
+            System.out.println("[컴퓨터 추측] " + format(computerGuess));
+            Judge.Result computerResult = readJudgmentLoop();
             if (computerResult.isPerfect()) {
                 System.out.println("\n컴퓨터가 당신의 숫자를 맞췄습니다. 컴퓨터의 승리입니다!");
                 break;
@@ -46,7 +45,27 @@ public final class NumberBaseballGame {
             round++;
         }
 
+        System.out.println("(컴퓨터의 비밀번호는 " + format(computer.getSecret()) + "였습니다.)");
         scanner.close();
+    }
+
+    private Judge.Result readJudgmentLoop() {
+        while (true) {
+            System.out.print("이 추측에 대한 결과를 'Strike Ball' 형식으로 입력하세요 (예: 2 1): ");
+            String line = scanner.nextLine().trim();
+            if (!line.matches("\\d\\s+\\d")) {
+                System.out.println("숫자 두 개를 공백으로 구분해 입력해주세요 (예: 1 2).");
+                continue;
+            }
+            String[] parts = line.split("\\s+");
+            int strike = Integer.parseInt(parts[0]);
+            int ball = Integer.parseInt(parts[1]);
+            if (strike > 4 || ball > 4 || strike + ball > 4) {
+                System.out.println("Strike와 Ball의 합은 4를 넘을 수 없습니다.");
+                continue;
+            }
+            return new Judge.Result(strike, ball);
+        }
     }
 
     private int[] readDigitsLoop(String prompt) {
