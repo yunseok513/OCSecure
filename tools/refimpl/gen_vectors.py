@@ -34,7 +34,7 @@ SAMPLES = [
     ('EMPTY', '', 'NONE'),
     ('LONG', 'A' * 200, 'NONE'),
 ]
-PASSWORDS = ['Passw0rd!', '한글비밀번호1!', '']
+PASSWORDS = ['Passw0rd!', '한글비밀번호1!', '공백 포함 긴 문장 암호 2026!']
 
 
 def build():
@@ -111,6 +111,40 @@ def emit_sql(v, path):
         fh.write('\n'.join(out))
 
 
+def emit_properties(v, path):
+    """자바 연동 모듈이 읽을 벡터. java.util.Properties 로 읽는다.
+
+    JSON 파서를 끌어들이지 않으려고 별도 형식을 하나 더 둔다. 연동 모듈은 외부
+    의존성이 없어야 어느 프로젝트에나 그대로 넣을 수 있기 때문이다.
+    파일은 UTF-8 로 쓰며, 자바 쪽에서 문자집합을 명시한 Reader 로 읽는다.
+    """
+    lines = ['# 자동 생성 파일. 직접 수정하지 말 것.',
+             '# 생성: python3 tools/refimpl/gen_vectors.py',
+             '# 시험 전용 벡터이며 실제 키로 사용해서는 안 된다.']
+
+    def put(k, val):
+        val = str(val).replace('\\', '\\\\')
+        lines.append('%s=%s' % (k, val))
+
+    for k in ('kek', 'kek_enc', 'kek_mac', 'enc_key', 'mac_key', 'idx_key', 'iv',
+              'wrapped_enc_key', 'wrapped_mac_key', 'wrapped_idx_key',
+              'pwd_salt', 'pwd_iterations', 'key_id'):
+        put(k, v[k])
+    for smp in v['samples']:
+        put('sample.%s.plain'  % smp['name'], smp['plain'])
+        put('sample.%s.norm'   % smp['name'], smp['norm'])
+        put('sample.%s.cipher' % smp['name'], smp['cipher'])
+        put('sample.%s.bidx'   % smp['name'], smp['blind_index'])
+    put('sample.names', ','.join(smp['name'] for smp in v['samples']))
+    for i, pw in enumerate(v['passwords']):
+        put('pwd.%d.plain'  % i, pw['plain'])
+        put('pwd.%d.stored' % i, pw['stored'])
+    put('pwd.count', len(v['passwords']))
+
+    with open(path, 'w', encoding='utf-8') as fh:
+        fh.write('\n'.join(lines) + '\n')
+
+
 def main():
     root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     v = build()
@@ -119,8 +153,11 @@ def main():
         json.dump(v, fh, ensure_ascii=False, indent=2)
     spath = os.path.join(root, 'sql', '09_test', '901_kat_data.sql')
     emit_sql(v, spath)
+    ppath = os.path.join(root, 'tests', 'vectors', 'kat.properties')
+    emit_properties(v, ppath)
     print('생성 완료:', jpath)
     print('생성 완료:', spath)
+    print('생성 완료:', ppath)
 
 
 if __name__ == '__main__':

@@ -168,8 +168,10 @@ CREATE OR REPLACE PACKAGE BODY PKG_CRYPTO_CORE AS
     v_salt RAW(16);
     v_iter PLS_INTEGER;
   BEGIN
+    -- 빈 비밀번호는 거부한다. 오라클에서 빈 문자열은 널이므로 아래 한 줄이 둘 다
+    -- 걸러 낸다. 참조 구현과 자바 연동 모듈도 같은 값을 거부한다.
     IF p_password IS NULL THEN
-      RETURN NULL;
+      PKG_SEC_ERR.raise_err(PKG_SEC_ERR.e_bad_arg, '빈 비밀번호는 저장할 수 없다');
     END IF;
     v_salt := NVL(p_salt, PKG_PROVIDER_DBMS.random_bytes(c_pwd_salt_len));
     v_iter := NVL(p_iterations, cfg_num('PWD_ITERATIONS', 10000));

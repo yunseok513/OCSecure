@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+                             http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>ocsecure</groupId>
+  <artifactId>ocsecure-client</artifactId>
+  <version>1.0.0</version>
+  <packaging>jar</packaging>
+
+  <name>OCSecure 자바 연동 모듈</name>
+  <description>
+    오라클 컬럼 암복호화 모듈의 자바 연동 라이브러리.
+    외부 의존성이 없다. 전자정부 표준프레임워크 프로젝트에 그대로 넣을 수 있으며,
+    소스를 직접 복사해 넣어도 동작한다.
+  </description>
+
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <!-- 전자정부 표준프레임워크 3.x 환경까지 고려하여 1.8 을 대상으로 한다. -->
+    <maven.compiler.source>1.8</maven.compiler.source>
+    <maven.compiler.target>1.8</maven.compiler.target>
+  </properties>
+
+  <!--
+    의존성이 없는 것은 의도한 설계다. 암호 모듈이 다른 라이브러리를 끌고 들어오면
+    그 라이브러리의 취약점이 곧 암호 모듈의 취약점이 되고, 버전 충돌이 생기면
+    적용 자체가 막힌다. JDK 표준 라이브러리만으로 충분하므로 그렇게 하였다.
+  -->
+
+  <build>
+    <sourceDirectory>src/main/java</sourceDirectory>
+    <testSourceDirectory>src/test/java</testSourceDirectory>
+  </build>
+</project>

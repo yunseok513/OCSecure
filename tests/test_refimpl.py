@@ -20,7 +20,7 @@ IV = bytes(range(0x10))
 class TestPbkdf2(unittest.TestCase):
     def test_matches_standard_library(self):
         """수동 구현이 표준 구현과 일치해야 한다. PL/SQL 이식의 근거가 된다."""
-        for pwd in ['Passw0rd!', '한글비밀번호1!', '']:
+        for pwd in ['Passw0rd!', '한글비밀번호1!', 'x']:
             for it in (1, 2, 1000, 4096, 10000):
                 self.assertEqual(
                     R.pbkdf2_sha256_manual(pwd, b'0123456789abcdef', it),
@@ -91,10 +91,16 @@ class TestBlindIndex(unittest.TestCase):
 
 class TestPassword(unittest.TestCase):
     def test_verify(self):
-        for pw in ['Passw0rd!', '한글비밀번호1!', '']:
+        for pw in ['Passw0rd!', '한글비밀번호1!', '공백 포함 긴 문장 암호 2026!']:
             stored = R.password_hash(pw, iterations=1000)
             self.assertTrue(R.password_verify(pw, stored))
             self.assertFalse(R.password_verify(pw + 'x', stored))
+
+    def test_empty_rejected(self):
+        """빈 비밀번호는 세 구현 모두에서 거부되어야 한다."""
+        with self.assertRaises(R.CryptoFormatError):
+            R.password_hash('', iterations=1000)
+        self.assertFalse(R.password_verify('', R.password_hash('x', iterations=1000)))
 
     def test_salted(self):
         a = R.password_hash('Passw0rd!', iterations=1000)

@@ -206,6 +206,15 @@ BEGIN
   chk('같은 비밀번호라도 저장값은 매번 달라진다 (솔트)',
       PKG_CRYPTO_CORE.pwd_hash('Passw0rd!') <> PKG_CRYPTO_CORE.pwd_hash('Passw0rd!'));
 
+  BEGIN
+    -- 오라클에서 빈 문자열은 널이다. 참조 구현과 자바 연동 모듈도 같은 값을 거부한다.
+    v_c := PKG_CRYPTO_CORE.pwd_hash('');
+    chk('빈 비밀번호는 거부된다', FALSE, '예외가 발생하지 않았다');
+  EXCEPTION
+    WHEN OTHERS THEN
+      chk('빈 비밀번호는 거부된다', SQLCODE = PKG_SEC_ERR.e_bad_arg, 'SQLCODE=' || SQLCODE);
+  END;
+
   ------------------------------------------------------- 9. 키 교체
   v_c := PKG_CRYPTO_CORE.encrypt_str('교체 전 데이터', 'KAT_NONE');
   put_key(4, 'KAT_NONE', 'RETIRING');

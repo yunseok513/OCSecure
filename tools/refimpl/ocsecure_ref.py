@@ -208,10 +208,17 @@ def pbkdf2_sha256_manual(password, salt, iterations, dklen=PWD_DK_LEN):
 def password_hash(password, salt=None, iterations=100000):
     """비밀번호 저장 블롭.
 
+    빈 비밀번호는 거부한다. 저장되어서는 안 되는 값이기도 하고, 세 구현의 동작이
+    갈리는 지점이기도 하다. 자바는 빈 키로 메시지 인증 코드를 계산하지 못하고,
+    오라클은 빈 문자열을 널로 다루며, 파이썬만 조용히 값을 만들어 낸다.
+    맞추기보다 셋 다 거부하는 편이 옳다.
+
     블롭 = ver(1) | kdf(1) | iterations(4, big-endian) | salt(16) | dk(32)
     반복 횟수를 블롭에 담으므로, 나중에 반복 횟수를 상향해도 기존 사용자와
     신규 사용자가 공존할 수 있다.
     """
+    if password is None or password == '':
+        raise CryptoFormatError('빈 비밀번호는 저장할 수 없다')
     salt = salt if salt is not None else os.urandom(PWD_SALT_LEN)
     if len(salt) != PWD_SALT_LEN:
         raise CryptoFormatError('salt must be 16 bytes')
@@ -223,6 +230,8 @@ def password_hash(password, salt=None, iterations=100000):
 
 
 def password_verify(password, stored):
+    if password is None or password == '':
+        return False
     if stored is None or len(stored) != 2 + 4 + PWD_SALT_LEN + PWD_DK_LEN:
         return False
     if stored[0] != KDF_VERSION or stored[1] != KDF_PBKDF2_HMAC_SHA256:
