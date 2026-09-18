@@ -1,0 +1,68 @@
+-- OCSecure 설치
+--
+-- 실행 순서가 의존 관계를 따르므로 순서를 바꾸면 컴파일에 실패한다.
+-- 계정별로 접속을 바꾸어 가며 실행해야 하므로, 이 파일은 그대로 돌리는 스크립트가
+-- 아니라 절차서로 쓴다. 각 단계의 실행 계정을 확인하고 진행할 것.
+--
+--   0단계  SYS 로 접속하여 환경을 점검한다.
+--            @01_schema/001_precheck.sql
+--          실패 항목이 있으면 여기서 멈춘다. SHA-256 계열이 없는 버전에서는
+--          이 구현을 설치할 수 없다.
+--
+--   1단계  SYS 로 접속하여 계정과 역할과 문맥을 만든다.
+--            @01_schema/010_users_roles.sql
+--
+--   2단계  OCS_OWNER 로 접속하여 테이블과 뷰를 만든다.
+--            @01_schema/020_tables.sql
+--            @01_schema/030_views.sql
+--
+--   3단계  OCS_OWNER 로 접속하여 패키지를 만든다. 번호 순서를 지킬 것.
+--            @02_packages/090_pkg_sec_err.sql
+--            @02_packages/100_pkg_provider_dbms.sql
+--            @02_packages/110_pkg_crypto_fmt.sql
+--            @02_packages/120_pkg_audit.sql
+--            @02_packages/130_pkg_kek_provider.sql
+--            @02_packages/140_pkg_key_store.sql
+--            @02_packages/150_pkg_crypto_core.sql
+--            @02_packages/160_pkg_authz.sql
+--            @02_packages/170_pkg_app_context.sql
+--            @02_packages/180_pkg_key_admin.sql
+--            @02_packages/190_pkg_crypto_policy.sql
+--            @02_packages/200_pkg_secure_api.sql
+--            @02_packages/210_pkg_rekey.sql
+--          컴파일 오류가 없는지 반드시 확인한다.
+--            SELECT object_name, status FROM user_objects
+--             WHERE object_type LIKE 'PACKAGE%' AND status <> 'VALID';
+--
+--   4단계  OCS_OWNER 로 접속하여 권한을 부여한다.
+--            @03_grants/300_grants.sql
+--          끝에 나오는 두 점검 결과가 모두 비어 있어야 한다.
+--
+--   5단계  OCS_OWNER 로 접속하여 자체 시험을 돌린다. 시험 환경에서만 수행한다.
+--            @09_test/900_kat_setup.sql
+--            @09_test/901_kat_data.sql
+--            @09_test/902_selftest.sql
+--          실패가 한 건이라도 있으면 배포하지 않는다.
+--
+--   6단계  도메인과 키를 만든다. OCS_KEYADM 으로 접속한다.
+--          개발 환경이라면 먼저 마스터 키를 주입한다(운영에서는 이 단계가 없다).
+--            EXEC OCS_OWNER.PKG_KEK_PROVIDER.set_master_key(<32바이트 이상 RAW>);
+--          이어서 도메인과 키를 만든다.
+--            EXEC OCS_OWNER.PKG_KEY_ADMIN.upsert_domain('RRN','주민등록번호',
+--                   'DIGITS','RRN','Y',0,'SUMMARY');
+--            DECLARE v PLS_INTEGER; BEGIN
+--              v := OCS_OWNER.PKG_KEY_ADMIN.create_key('RRN', TRUE, '최초 생성');
+--            END;
+--            /
+--          애플리케이션 문맥 증표용 키도 같은 방식으로 '_APPCTX' 도메인에 만든다.
+--
+--   7단계  운영 전환. SYS 로 접속한다.
+--            @03_grants/310_lockdown.sql
+--          이 단계를 건너뛰면 앞의 통제가 모두 무의미해진다.
+--
+--   8단계  데이터베이스 밖의 조치. 310_lockdown.sql 끝의 4항을 참조한다.
+--          마스터 키의 외부 보관과 복구 시험, 감사 로그 외부 전송, 접속 지점 제한,
+--          패키지 소스 해시의 외부 보관과 정기 대조가 여기에 해당한다.
+--
+-- 예시 적용은 08_sample/800_sample_member.sql 을 참조한다.
+PROMPT 이 파일은 절차서다. 각 단계의 실행 계정을 확인하고 개별 스크립트를 실행할 것.
