@@ -25,6 +25,16 @@ INSERT INTO SEC_CONFIG (cfg_key, cfg_value, description) VALUES
 INSERT INTO SEC_CONFIG (cfg_key, cfg_value, description) VALUES
   ('LEGACY_PWD_CHARSET', 'AL32UTF8',
    '기존 비밀번호 체계가 쓰던 문자집합. 이행 전에 PKG_LEGACY_PWD.self_check 로 확정한다.');
+-- 기존 체계가 비밀번호 앞뒤에 고정 문자열을 붙이던 경우에만 아래 두 항목을
+-- 추가한다. 없는 것이 기본이며, 행이 없으면 아무것도 붙이지 않는다.
+-- 빈 문자열을 넣어 두는 방법은 쓸 수 없다. 오라클에서 빈 문자열은 널이고
+-- 이 컬럼은 널을 받지 않는다. 공백 한 칸을 넣으면 그 공백이 실제로 붙어
+-- 계산이 어긋나므로, 필요 없으면 행 자체를 두지 않는다.
+--
+--   INSERT INTO SEC_CONFIG (cfg_key, cfg_value, description) VALUES
+--     ('LEGACY_PWD_PREFIX', '소스에서 찾은 문자열', '기존 체계의 고정 접두 문자열');
+--   INSERT INTO SEC_CONFIG (cfg_key, cfg_value, description) VALUES
+--     ('LEGACY_PWD_SUFFIX', '소스에서 찾은 문자열', '기존 체계의 고정 접미 문자열');
 INSERT INTO SEC_CONFIG (cfg_key, cfg_value, description) VALUES
   ('APPCTX_MODE', 'PROOF',
    '애플리케이션 문맥 설정 방식. PROOF 는 증표 검증(운영), SIMPLE 은 검증 없음(개발 전용).');

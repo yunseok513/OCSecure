@@ -86,6 +86,39 @@ class TestKnownConstructions(unittest.TestCase):
         self.assertTrue(P.probe(PW, stored, None))
 
 
+class TestFixedSalt(unittest.TestCase):
+    """소스에 박아 둔 고정 문자열을 섞는 구성.
+
+    이런 구성도 32바이트 Base64 를 내고 중복도 그대로 생기므로, 저장값의
+    생김새만으로는 단순 해시와 구분되지 않는다. 솔트를 알아야 재현된다.
+    """
+
+    SALT = 'mySecretSalt2011'
+
+    def test_prefix(self):
+        stored = b64(hashlib.sha256((self.SALT + PW).encode()).digest())
+        hits = P.probe(PW, stored, None, self.SALT)
+        self.assertTrue(any('고정솔트 + 비밀번호' in h for h in hits), hits)
+
+    def test_suffix(self):
+        stored = b64(hashlib.sha256((PW + self.SALT).encode()).digest())
+        hits = P.probe(PW, stored, None, self.SALT)
+        self.assertTrue(any('비밀번호 + 고정솔트' in h for h in hits), hits)
+
+    def test_both_sides(self):
+        stored = b64(hashlib.sha256((self.SALT + PW + self.SALT).encode()).digest())
+        self.assertTrue(P.probe(PW, stored, None, self.SALT))
+
+    def test_unknown_salt_not_found(self):
+        """솔트를 모르면 맞히지 못하는 것이 정상이다. 그때는 소스를 봐야 한다."""
+        stored = b64(hashlib.sha256((self.SALT + PW).encode()).digest())
+        self.assertEqual(P.probe(PW, stored, None), [])
+
+    def test_wrong_salt_not_found(self):
+        stored = b64(hashlib.sha256((self.SALT + PW).encode()).digest())
+        self.assertEqual(P.probe(PW, stored, None, 'wrongSalt'), [])
+
+
 class TestPlaintext(unittest.TestCase):
 
     def test_plain(self):

@@ -32,12 +32,27 @@ public final class OcsLegacyPassword {
     }
 
     public static String legacyHash(String password, Charset charset) {
+        return legacyHash(password, charset, null, null);
+    }
+
+    /**
+     * 소스에 상수로 박아 둔 고정 문자열을 앞뒤에 붙이는 구성까지 다룬다.
+     *
+     * <p>그런 구성은 사용자마다 값이 달라지지 않으므로 중복은 그대로 생기지만,
+     * 단순 해시와는 값이 다르다. 저장값의 생김새만으로는 가릴 수 없고 소스를
+     * 확인해야 한다.
+     */
+    public static String legacyHash(String password, Charset charset,
+                                    String prefix, String suffix) {
         if (password == null) {
             return null;
         }
+        String text = (prefix == null ? "" : prefix)
+                    + password
+                    + (suffix == null ? "" : suffix);
         try {
             MessageDigest md = MessageDigest.getInstance("SHA-256");
-            return Base64.getEncoder().encodeToString(md.digest(password.getBytes(charset)));
+            return Base64.getEncoder().encodeToString(md.digest(text.getBytes(charset)));
         } catch (Exception e) {
             throw new OcsCryptoException("기존 방식 계산 실패", e);
         }

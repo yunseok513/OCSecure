@@ -26,8 +26,13 @@ CREATE OR REPLACE PACKAGE PKG_LEGACY_PWD AS
   c_cs_win949 CONSTANT VARCHAR2(30) := 'KO16MSWIN949';
   c_cs_ksc    CONSTANT VARCHAR2(30) := 'KO16KSC5601';
 
+  -- 소스에 상수로 박아 둔 고정 문자열을 섞는 구성이 드물지 않다. 그런 경우
+  -- SEC_CONFIG 의 LEGACY_PWD_PREFIX 와 LEGACY_PWD_SUFFIX 에 넣으면 코드를
+  -- 고치지 않고 대응할 수 있다. 확인은 self_check 로 한다.
   FUNCTION legacy_hash(p_password IN VARCHAR2,
-                       p_charset  IN VARCHAR2 DEFAULT NULL) RETURN VARCHAR2;
+                       p_charset  IN VARCHAR2 DEFAULT NULL,
+                       p_prefix   IN VARCHAR2 DEFAULT NULL,
+                       p_suffix   IN VARCHAR2 DEFAULT NULL) RETURN VARCHAR2;
 
   FUNCTION is_legacy(p_stored IN VARCHAR2) RETURN BOOLEAN;
 
@@ -46,22 +51,37 @@ CREATE OR REPLACE PACKAGE BODY PKG_LEGACY_PWD AS
     v VARCHAR2(200);
   BEGIN
     SELECT cfg_value INTO v FROM SEC_CONFIG WHERE cfg_key = 'LEGACY_PWD_CHARSET';
-    RETURN v;
+    RETURN NVL(v, c_cs_utf8);
   EXCEPTION
     WHEN NO_DATA_FOUND THEN RETURN c_cs_utf8;
   END cfg_charset;
 
+  FUNCTION cfg(p_key VARCHAR2) RETURN VARCHAR2 IS
+    v VARCHAR2(200);
+  BEGIN
+    SELECT cfg_value INTO v FROM SEC_CONFIG WHERE cfg_key = p_key;
+    RETURN v;
+  EXCEPTION
+    WHEN NO_DATA_FOUND THEN RETURN NULL;
+  END cfg;
+
   FUNCTION legacy_hash(p_password IN VARCHAR2,
-                       p_charset  IN VARCHAR2 DEFAULT NULL) RETURN VARCHAR2 IS
+                       p_charset  IN VARCHAR2 DEFAULT NULL,
+                       p_prefix   IN VARCHAR2 DEFAULT NULL,
+                       p_suffix   IN VARCHAR2 DEFAULT NULL) RETURN VARCHAR2 IS
+    v_text VARCHAR2(4000);
   BEGIN
     IF p_password IS NULL THEN
       RETURN NULL;
     END IF;
+    v_text := NVL(p_prefix, cfg('LEGACY_PWD_PREFIX'))
+              || p_password
+              || NVL(p_suffix, cfg('LEGACY_PWD_SUFFIX'));
     -- 32바이트를 Base64 로 바꾸면 44자이며 줄바꿈이 끼어들 길이가 아니다.
     RETURN UTL_RAW.CAST_TO_VARCHAR2(
              UTL_ENCODE.BASE64_ENCODE(
                PKG_PROVIDER_DBMS.digest(
-                 UTL_I18N.STRING_TO_RAW(p_password, NVL(p_charset, cfg_charset)))));
+                 UTL_I18N.STRING_TO_RAW(v_text, NVL(p_charset, cfg_charset)))));
   END legacy_hash;
 
   FUNCTION is_legacy(p_stored IN VARCHAR2) RETURN BOOLEAN IS

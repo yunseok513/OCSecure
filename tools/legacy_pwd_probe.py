@@ -10,6 +10,7 @@
 
   python3 tools/legacy_pwd_probe.py --plain 'Test1234!' --stored '<저장값>'
   python3 tools/legacy_pwd_probe.py --plain 'Test1234!' --stored '<저장값>' --id 'testuser'
+  python3 tools/legacy_pwd_probe.py --plain 'Test1234!' --stored '<저장값>' --salt '<고정문자열>'
 
 아이디를 함께 넣으면 아이디를 섞는 구성까지 시도한다. 국내 시스템에서는 솔트를
 따로 두지 않고 아이디를 솔트처럼 쓰는 구성이 드물지 않으므로, 아이디는 되도록
@@ -44,13 +45,22 @@ def encodings_of(digest):
     }
 
 
-def layouts_of(pwd, uid):
+def layouts_of(pwd, uid, salt=None):
     """평문을 어떤 순서로 이어 붙였을 수 있는지."""
     out = [('비밀번호만', pwd)]
     if uid:
         out.append(('아이디 + 비밀번호', uid + pwd))
         out.append(('비밀번호 + 아이디', pwd + uid))
         out.append(('아이디 + 비밀번호 + 아이디', uid + pwd + uid))
+    if salt:
+        # 소스에 박아 둔 고정 문자열을 섞는 구성. 사용자마다 값이 달라지지는
+        # 않으므로 중복은 그대로 생기지만, 단순 해시와는 값이 다르다.
+        out.append(('고정솔트 + 비밀번호', salt + pwd))
+        out.append(('비밀번호 + 고정솔트', pwd + salt))
+        out.append(('고정솔트 + 비밀번호 + 고정솔트', salt + pwd + salt))
+        if uid:
+            out.append(('고정솔트 + 아이디 + 비밀번호', salt + uid + pwd))
+            out.append(('아이디 + 비밀번호 + 고정솔트', uid + pwd + salt))
     return out
 
 
@@ -59,7 +69,7 @@ def normalize(stored):
     return stored.strip()
 
 
-def probe(plain, stored, uid):
+def probe(plain, stored, uid, salt=None):
     stored = normalize(stored)
     hits = []
 
@@ -78,7 +88,7 @@ def probe(plain, stored, uid):
             continue
 
     for cs in CHARSETS:
-        for layout_name, text in layouts_of(plain, uid):
+        for layout_name, text in layouts_of(plain, uid, salt):
             try:
                 raw = text.encode(cs)
             except UnicodeEncodeError:
@@ -144,6 +154,9 @@ def describe_shape(stored):
             pass
     if not notes:
         notes.append('알려진 형식으로 보이지 않는다. 평문이거나 양방향 암호화일 수 있다.')
+    notes.append('소스에 박아 둔 고정 문자열을 섞는 구성이면 그 문자열을 모르는 한 '
+                 '재현할 수 없다. 로그인 처리 코드에서 해시 함수에 넘기는 인자를 '
+                 '확인하고, 상수 문자열이 있으면 --salt 로 넣어 다시 시도할 것.')
 
     notes.append('길이 %d' % n)
     return notes
@@ -154,10 +167,13 @@ def main():
     ap.add_argument('--plain', required=True, help='알고 있는 평문 비밀번호')
     ap.add_argument('--stored', required=True, help='그 평문으로 저장된 값')
     ap.add_argument('--id', dest='uid', default=None, help='해당 계정의 아이디(선택)')
+    ap.add_argument('--salt', default=None,
+                    help='소스에서 찾은 고정 문자열(선택). 상수로 박아 둔 솔트가 '
+                         '있으면 여기 넣는다')
     args = ap.parse_args()
 
     print('=== 기존 비밀번호 저장 방식 식별 ===')
-    hits = probe(args.plain, args.stored, args.uid)
+    hits = probe(args.plain, args.stored, args.uid, args.salt)
 
     if hits:
         print('일치하는 구성을 찾았다.')
