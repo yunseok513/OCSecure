@@ -71,6 +71,9 @@ def build():
         v['passwords'].append({
             'plain': pw,
             'stored': R.hx(R.password_hash(pw, PWD_SALT, PWD_ITER)),
+            # 이행 대상인 기존 방식. 세 구현이 같은 값을 내야 한다.
+            'legacy_utf8': R.legacy_hash(pw, 'utf-8'),
+            'legacy_cp949': R.legacy_hash(pw, 'cp949'),
         })
     return v
 
@@ -95,6 +98,7 @@ def emit_sql(v, path):
     for i, p in enumerate(v['passwords']):
         rows.append(('PWD_PLAIN_%d' % i, p['plain']))
         rows.append(('PWD_STORED_%d' % i, p['stored']))
+        rows.append(('LEGACY_UTF8_%d' % i, p['legacy_utf8']))
 
     out = ["-- 자동 생성 파일. 직접 수정하지 말 것.",
            "-- 생성: python3 tools/refimpl/gen_vectors.py",
@@ -139,6 +143,8 @@ def emit_properties(v, path):
     for i, pw in enumerate(v['passwords']):
         put('pwd.%d.plain'  % i, pw['plain'])
         put('pwd.%d.stored' % i, pw['stored'])
+        put('pwd.%d.legacy_utf8'  % i, pw['legacy_utf8'])
+        put('pwd.%d.legacy_cp949' % i, pw['legacy_cp949'])
     put('pwd.count', len(v['passwords']))
 
     with open(path, 'w', encoding='utf-8') as fh:

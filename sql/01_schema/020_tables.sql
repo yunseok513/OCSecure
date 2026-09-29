@@ -23,6 +23,9 @@ INSERT INTO SEC_CONFIG (cfg_key, cfg_value, description) VALUES
   ('FAIL_DELAY_CS', '0',
    '복호화 실패 시 지연 시간(1/100초). 대량 시도 억제용. 0이면 지연하지 않는다.');
 INSERT INTO SEC_CONFIG (cfg_key, cfg_value, description) VALUES
+  ('LEGACY_PWD_CHARSET', 'AL32UTF8',
+   '기존 비밀번호 체계가 쓰던 문자집합. 이행 전에 PKG_LEGACY_PWD.self_check 로 확정한다.');
+INSERT INTO SEC_CONFIG (cfg_key, cfg_value, description) VALUES
   ('APPCTX_MODE', 'PROOF',
    '애플리케이션 문맥 설정 방식. PROOF 는 증표 검증(운영), SIMPLE 은 검증 없음(개발 전용).');
 INSERT INTO SEC_CONFIG (cfg_key, cfg_value, description) VALUES

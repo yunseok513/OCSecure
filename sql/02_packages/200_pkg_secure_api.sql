@@ -53,6 +53,18 @@ CREATE OR REPLACE PACKAGE PKG_SECURE_API AS
   FUNCTION make_pwd  (p_password IN VARCHAR2) RETURN RAW;
   FUNCTION verify_pwd(p_password IN VARCHAR2, p_stored IN RAW) RETURN NUMBER;  -- 1 또는 0
   FUNCTION pwd_stale (p_stored   IN RAW) RETURN NUMBER;                        -- 1 또는 0
+
+  -- 이행 기간용 -----------------------------------------------------------
+  -- 기존 컬럼이 문자열이고 옛 형식과 새 형식이 섞여 있는 동안 쓴다.
+  -- 새 형식은 16진 문자열 108자로, 옛 형식은 Base64 44자로 저장되므로 구분된다.
+  -- 이행이 끝나면 이 두 함수와 PKG_LEGACY_PWD 를 함께 제거한다.
+
+  FUNCTION make_pwd_str(p_password IN VARCHAR2) RETURN VARCHAR2;
+
+  -- 0 = 불일치
+  -- 1 = 일치, 현재 형식이다. 그대로 로그인시킨다.
+  -- 2 = 일치, 옛 형식이다. 로그인시키되 비밀번호 변경을 강제한다.
+  FUNCTION check_pwd(p_password IN VARCHAR2, p_stored IN VARCHAR2) RETURN NUMBER;
 END PKG_SECURE_API;
 /
 
@@ -153,6 +165,35 @@ CREATE OR REPLACE PACKAGE BODY PKG_SECURE_API AS
     -- 1 이면 로그인 성공 시점에 현재 기준으로 다시 계산하여 저장할 것.
     RETURN CASE WHEN PKG_CRYPTO_CORE.pwd_needs_upgrade(p_stored) THEN 1 ELSE 0 END;
   END pwd_stale;
+
+  FUNCTION make_pwd_str(p_password IN VARCHAR2) RETURN VARCHAR2 IS
+  BEGIN
+    RETURN RAWTOHEX(PKG_CRYPTO_CORE.pwd_hash(p_password));
+  END make_pwd_str;
+
+  FUNCTION check_pwd(p_password IN VARCHAR2, p_stored IN VARCHAR2) RETURN NUMBER IS
+    c_hex_len CONSTANT PLS_INTEGER := PKG_CRYPTO_CORE.c_pwd_blob_len * 2;   -- 108
+  BEGIN
+    IF p_password IS NULL OR p_stored IS NULL THEN
+      RETURN 0;
+    END IF;
+
+    -- 현재 형식인가. 16진 문자열이므로 길이와 문자 구성으로 판별한다.
+    IF LENGTH(p_stored) = c_hex_len
+       AND REGEXP_LIKE(p_stored, '^[0-9A-Fa-f]+$') THEN
+      RETURN CASE WHEN PKG_CRYPTO_CORE.pwd_verify(p_password, HEXTORAW(p_stored))
+                  THEN 1 ELSE 0 END;
+    END IF;
+
+    -- 옛 형식인가. 맞으면 로그인은 시키되 변경을 요구하라는 뜻으로 2 를 돌려준다.
+    IF PKG_LEGACY_PWD.is_legacy(p_stored) THEN
+      RETURN CASE WHEN PKG_LEGACY_PWD.verify_legacy(p_password, p_stored)
+                  THEN 2 ELSE 0 END;
+    END IF;
+
+    -- 어느 쪽도 아니면 조사에서 놓친 형식이다. 통과시키지 않는다.
+    RETURN 0;
+  END check_pwd;
 
 END PKG_SECURE_API;
 /

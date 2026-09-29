@@ -127,6 +127,33 @@ public final class OcsSelfTest {
         }
         chk("빈 비밀번호는 거부된다", emptyRejected);
 
+        // 9. 기존 체계(이행 대상)
+        for (int i = 0; i < pwdCount; i++) {
+            String plain = v.getProperty("pwd." + i + ".plain", "");
+            String lutf8 = v.getProperty("pwd." + i + ".legacy_utf8");
+            String lcp949 = v.getProperty("pwd." + i + ".legacy_cp949");
+
+            chk("기존 방식 계산이 참조 구현과 일치 UTF-8 (" + i + ")",
+                    lutf8.equals(OcsLegacyPassword.legacyHash(plain)));
+            chk("기존 방식 저장값으로 인식된다 (" + i + ")",
+                    OcsLegacyPassword.isLegacy(lutf8));
+            chk("기존 방식 검증이 통과한다 (" + i + ")",
+                    OcsLegacyPassword.verifyLegacy(plain, lutf8));
+            chk("틀린 비밀번호는 기존 방식에서도 통과하지 못한다 (" + i + ")",
+                    !OcsLegacyPassword.verifyLegacy(plain + "x", lutf8));
+            chk("가정 확인이 문자집합을 찾아낸다 UTF-8 (" + i + ")",
+                    "UTF-8".equals(OcsLegacyPassword.selfCheck(plain, lutf8)));
+            if (!lcp949.equals(lutf8)) {
+                chk("가정 확인이 문자집합을 찾아낸다 MS949 (" + i + ")",
+                        "MS949".equals(OcsLegacyPassword.selfCheck(plain, lcp949)));
+            }
+        }
+        chk("새 형식은 기존 방식으로 인식되지 않는다",
+                !OcsLegacyPassword.isLegacy(
+                        OcsCrypto.toHex(OcsCrypto.passwordHash("x", salt, 100))));
+        chk("가정이 틀리면 확인이 실패한다",
+                OcsLegacyPassword.selfCheck("Passw0rd!", "A".repeat(43) + "=") == null);
+
         chk("반복 횟수 상향 판정",
                 OcsCrypto.passwordNeedsUpgrade(OcsCrypto.passwordHash("x", salt, 1000), 10000));
 

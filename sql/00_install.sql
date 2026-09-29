@@ -28,6 +28,7 @@
 --            @02_packages/170_pkg_app_context.sql
 --            @02_packages/180_pkg_key_admin.sql
 --            @02_packages/190_pkg_crypto_policy.sql
+--            @02_packages/195_pkg_legacy_pwd.sql
 --            @02_packages/200_pkg_secure_api.sql
 --            @02_packages/210_pkg_rekey.sql
 --          컴파일 오류가 없는지 반드시 확인한다.

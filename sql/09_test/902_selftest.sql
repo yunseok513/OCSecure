@@ -215,6 +215,46 @@ BEGIN
       chk('빈 비밀번호는 거부된다', SQLCODE = PKG_SEC_ERR.e_bad_arg, 'SQLCODE=' || SQLCODE);
   END;
 
+  --------------------------------------- 8의2. 기존 체계(이행 대상)
+  chk('기존 방식 계산이 참조 구현과 일치한다',
+      PKG_LEGACY_PWD.legacy_hash(kat('PWD_PLAIN_0'), PKG_LEGACY_PWD.c_cs_utf8)
+        = kat('LEGACY_UTF8_0'),
+      '계산 ' || PKG_LEGACY_PWD.legacy_hash(kat('PWD_PLAIN_0'), PKG_LEGACY_PWD.c_cs_utf8));
+
+  chk('한글 비밀번호도 참조 구현과 일치한다',
+      PKG_LEGACY_PWD.legacy_hash(kat('PWD_PLAIN_1'), PKG_LEGACY_PWD.c_cs_utf8)
+        = kat('LEGACY_UTF8_1'));
+
+  chk('기존 형식으로 인식된다', PKG_LEGACY_PWD.is_legacy(kat('LEGACY_UTF8_0')));
+  chk('새 형식은 기존 형식으로 인식되지 않는다',
+      NOT PKG_LEGACY_PWD.is_legacy(RAWTOHEX(katr('PWD_STORED_0'))));
+
+  chk('기존 방식 검증이 통과한다',
+      PKG_LEGACY_PWD.verify_legacy(kat('PWD_PLAIN_0'), kat('LEGACY_UTF8_0')));
+  chk('틀린 비밀번호는 기존 방식에서도 통과하지 못한다',
+      NOT PKG_LEGACY_PWD.verify_legacy(kat('PWD_PLAIN_0') || 'x', kat('LEGACY_UTF8_0')));
+
+  chk('가정 확인이 문자집합을 찾아낸다',
+      PKG_LEGACY_PWD.self_check(kat('PWD_PLAIN_0'), kat('LEGACY_UTF8_0')) LIKE '일치%',
+      PKG_LEGACY_PWD.self_check(kat('PWD_PLAIN_0'), kat('LEGACY_UTF8_0')));
+  chk('가정이 틀리면 확인이 실패한다',
+      PKG_LEGACY_PWD.self_check(kat('PWD_PLAIN_0'), RPAD('A', 43, 'A') || '=')
+        LIKE '불일치%');
+
+  -- 이행 기간 판정. 0 불일치 / 1 현재 형식 / 2 옛 형식
+  chk('check_pwd 가 옛 형식을 2로 판정한다',
+      PKG_SECURE_API.check_pwd(kat('PWD_PLAIN_0'), kat('LEGACY_UTF8_0')) = 2);
+  chk('check_pwd 가 현재 형식을 1로 판정한다',
+      PKG_SECURE_API.check_pwd(kat('PWD_PLAIN_0'),
+                               RAWTOHEX(katr('PWD_STORED_0'))) = 1);
+  chk('check_pwd 가 틀린 비밀번호를 0으로 판정한다',
+      PKG_SECURE_API.check_pwd(kat('PWD_PLAIN_0') || 'x', kat('LEGACY_UTF8_0')) = 0);
+  chk('check_pwd 가 알 수 없는 형식을 0으로 판정한다',
+      PKG_SECURE_API.check_pwd(kat('PWD_PLAIN_0'), '알 수 없는 값') = 0);
+  chk('make_pwd_str 이 만든 값을 check_pwd 가 1로 판정한다',
+      PKG_SECURE_API.check_pwd('Passw0rd!',
+                               PKG_SECURE_API.make_pwd_str('Passw0rd!')) = 1);
+
   ------------------------------------------------------- 9. 키 교체
   v_c := PKG_CRYPTO_CORE.encrypt_str('교체 전 데이터', 'KAT_NONE');
   put_key(4, 'KAT_NONE', 'RETIRING');
