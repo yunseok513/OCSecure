@@ -117,6 +117,37 @@ class TestPassword(unittest.TestCase):
         self.assertEqual(int.from_bytes(new[2:6], 'big'), 5000)
 
 
+class TestLegacyScheme(unittest.TestCase):
+    """이행 대상인 기존 방식의 재현과 확인.
+
+    복호화가 아니라 재계산 후 대조다. 해시에는 역함수가 없으므로 되돌릴 수는
+    없지만, 같은 방식으로 다시 계산해 같은 값이 나오는지 보는 것은 가능하다.
+    """
+
+    def test_shape(self):
+        h = R.legacy_hash('Passw0rd!')
+        self.assertEqual(len(h), 44)
+        self.assertTrue(h.endswith('='))
+        self.assertTrue(R.legacy_is(h))
+
+    def test_verify(self):
+        h = R.legacy_hash('Passw0rd!')
+        self.assertTrue(R.legacy_verify('Passw0rd!', h))
+        self.assertFalse(R.legacy_verify('Passw0rd!x', h))
+
+    def test_no_salt_means_duplicates(self):
+        """솔트가 없으므로 같은 비밀번호는 같은 값이 된다. 조사에서 본 중복의 원인이다."""
+        self.assertEqual(R.legacy_hash('Passw0rd!'), R.legacy_hash('Passw0rd!'))
+
+    def test_self_check_finds_charset(self):
+        for cs in ('utf-8', 'cp949'):
+            self.assertEqual(
+                R.legacy_self_check('한글비밀1!', R.legacy_hash('한글비밀1!', cs)), cs)
+
+    def test_self_check_rejects_wrong_guess(self):
+        self.assertIsNone(R.legacy_self_check('Passw0rd!', 'A' * 44))
+
+
 class TestKeyWrap(unittest.TestCase):
     def test_round_trip(self):
         kek = bytes(range(32))

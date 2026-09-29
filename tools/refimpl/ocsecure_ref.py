@@ -12,6 +12,7 @@ PL/SQL 구현(sql/02_packages)과 바이트 단위로 동일한 결과를 내는
 결정이며, PL/SQL 쪽에서도 UTL_I18N을 사용하여 동일하게 처리합니다.
 """
 
+import base64
 import hashlib
 import hmac
 import json
@@ -240,6 +241,63 @@ def password_verify(password, stored):
     salt = stored[6:6 + PWD_SALT_LEN]
     dk = stored[6 + PWD_SALT_LEN:]
     return hmac.compare_digest(pbkdf2_sha256_manual(password, salt, iterations), dk)
+
+
+# --- 기존 체계(이행 대상) ---------------------------------------------------
+
+# 조사로 확인된 기존 시스템의 비밀번호 저장 방식이다.
+#   Base64(SHA-256(비밀번호)), 솔트 없음, 아이디 결합 없음.
+#
+# 근거는 셋이다. 저장값이 Base64 44자이고 '=' 로 끝나므로 32바이트이며,
+# 32바이트를 내는 해시는 사실상 SHA-256 뿐이다. 그리고 서로 다른 사용자 사이에
+# 중복이 존재하므로 솔트도 아이디 결합도 없다. 아이디를 섞었다면 같은 비밀번호라도
+# 사용자마다 값이 달라져 중복이 생기지 않는다.
+#
+# 다만 이는 추정이며, 실제 계정으로 legacy_self_check 를 통과시키기 전에는
+# 이행 코드를 배포해서는 안 된다.
+
+LEGACY_LEN = 44
+# 예전에 구축된 국내 시스템은 문자집합이 갈리는 경우가 있다.
+LEGACY_CHARSETS = ('utf-8', 'cp949', 'euc-kr')
+
+
+def legacy_hash(password, charset='utf-8'):
+    """기존 방식으로 저장값을 만든다."""
+    if password is None:
+        return None
+    return base64.b64encode(
+        hashlib.sha256(password.encode(charset)).digest()).decode('ascii')
+
+
+def legacy_is(stored):
+    """기존 방식의 저장값으로 보이는가."""
+    if stored is None or len(stored) != LEGACY_LEN:
+        return False
+    try:
+        return len(base64.b64decode(stored)) == 32
+    except Exception:
+        return False
+
+
+def legacy_verify(password, stored, charset='utf-8'):
+    if password is None or not legacy_is(stored):
+        return False
+    return hmac.compare_digest(legacy_hash(password, charset), stored)
+
+
+def legacy_self_check(password, stored):
+    """실제 계정의 평문과 저장값으로 가정이 맞는지 확인한다.
+
+    맞으면 어느 문자집합인지 돌려주고, 틀리면 None 을 돌려준다. 이행 코드를
+    배포하기 전에 반드시 통과시켜야 하는 관문이다.
+    """
+    for cs in LEGACY_CHARSETS:
+        try:
+            if legacy_hash(password, cs) == stored:
+                return cs
+        except (UnicodeEncodeError, LookupError):
+            continue
+    return None
 
 
 # --- 유틸 ------------------------------------------------------------------
