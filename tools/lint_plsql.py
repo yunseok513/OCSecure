@@ -131,7 +131,8 @@ def main():
     pkg_files = sorted(glob.glob(os.path.join(ROOT, 'sql', '02_packages', '*.sql')))
     # 호출 점검은 예시와 시험 스크립트까지 넓혀서 본다.
     call_files = pkg_files + sorted(
-        glob.glob(os.path.join(ROOT, 'sql', '08_sample', '*.sql'))
+        glob.glob(os.path.join(ROOT, 'sql', '04_admin', '*.sql'))
+        + glob.glob(os.path.join(ROOT, 'sql', '08_sample', '*.sql'))
         + glob.glob(os.path.join(ROOT, 'sql', '09_test', '*.sql')))
 
     all_errs = []
