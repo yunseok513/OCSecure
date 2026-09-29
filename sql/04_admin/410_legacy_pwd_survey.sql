@@ -64,6 +64,24 @@ SELECT CASE
  ORDER BY cnt DESC;
 
 PROMPT
+PROMPT === 3의2. 패딩 문자 ===
+PROMPT     Base64 의 끝 패딩으로 원래 바이트 수가 확정된다.
+PROMPT     24자가 '=='로 끝나면 16바이트, 44자가 '='로 끝나면 32바이트다.
+PROMPT     그렇지 않다면 해시도 블록 암호도 아니므로 다시 봐야 한다.
+SELECT LENGTH(&col) AS val_len,
+       CASE WHEN SUBSTR(&col, -2) = '==' THEN '== 로 끝남'
+            WHEN SUBSTR(&col, -1) = '='  THEN '=  로 끝남'
+            ELSE '패딩 없음' END AS padding,
+       COUNT(*) AS cnt
+  FROM &tbl
+ WHERE &col IS NOT NULL
+ GROUP BY LENGTH(&col),
+       CASE WHEN SUBSTR(&col, -2) = '==' THEN '== 로 끝남'
+            WHEN SUBSTR(&col, -1) = '='  THEN '=  로 끝남'
+            ELSE '패딩 없음' END
+ ORDER BY 1, 3 DESC;
+
+PROMPT
 PROMPT === 4. 중복 저장값 ===
 PROMPT     이것이 솔트 유무를 가르는 결정적 단서다.
 PROMPT     서로 다른 사용자가 같은 저장값을 갖고 있다면 솔트가 없다는 뜻이다.
@@ -77,6 +95,24 @@ SELECT COUNT(*)                    AS total_users,
  WHERE &col IS NOT NULL;
 
 PROMPT
+PROMPT === 4의2. 길이와 계정 생성 시기의 관계 ===
+PROMPT     길이가 두 가지로 갈릴 때 원인을 가르는 조사다.
+PROMPT     옛 길이가 옛 계정에 몰려 있으면 알고리즘이 도중에 바뀐 것이고,
+PROMPT     생성 시기와 무관하게 섞여 있으면 길이를 가르는 것은 다른 요인,
+PROMPT     곧 비밀번호 자체의 길이일 가능성이 높다. 그 경우 해시가 아니라
+PROMPT     양방향 암호화를 의심해야 한다.
+PROMPT     날짜 컬럼이 없으면 빈 값을 넣고 넘어간다.
+ACCEPT dtcol CHAR PROMPT '  계정 생성일 컬럼명(없으면 엔터): '
+
+SELECT TO_CHAR(&dtcol, 'YYYY')  AS created_year,
+       LENGTH(&col)             AS val_len,
+       COUNT(*)                 AS cnt
+  FROM &tbl
+ WHERE &col IS NOT NULL
+ GROUP BY TO_CHAR(&dtcol, 'YYYY'), LENGTH(&col)
+ ORDER BY 1, 2;
+
+PROMPT
 PROMPT === 5. 다음 단계 ===
 PROMPT     시험계에 계정을 하나 만들고 비밀번호를 정해 등록한 뒤, 그 계정의
 PROMPT     저장값을 조회하여 아래와 같이 확정한다. 운영계 사용자의 비밀번호로
@@ -84,6 +120,11 @@ PROMPT     시도하지 말 것.
 PROMPT
 PROMPT       python3 tools/legacy_pwd_probe.py \
 PROMPT              --plain '정한비밀번호' --stored '조회한저장값' --id '아이디'
+PROMPT
+PROMPT     길이가 24자와 44자 두 가지로 갈리는 경우에는, 시험 계정의 비밀번호를
+PROMPT     40자 이상으로 길게 정하는 것이 결정적이다. 해시라면 비밀번호가 아무리
+PROMPT     길어도 저장값 길이는 그대로지만, 블록 암호라면 64자로 늘어난다.
+PROMPT     단 한 건으로 두 가설을 가를 수 있다.
 PROMPT
 
 SET FEEDBACK ON

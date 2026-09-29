@@ -133,6 +133,13 @@ def describe_shape(stored):
             notes.append('Base64 로 보이며 풀면 %d바이트다. '
                          '16은 MD5, 20은 SHA-1, 32는 SHA-256, 64는 SHA-512 의 길이다.'
                          % len(raw))
+            if len(raw) % 16 == 0:
+                notes.append('길이가 16의 배수다. 블록 암호로 암호화된 값일 수 있다. '
+                             '확인하려면 아주 긴 비밀번호(40자 이상)로 시험 계정을 '
+                             '하나 만들어 본다. 해시라면 저장값 길이가 그대로지만, '
+                             '블록 암호라면 길이가 늘어난다. 늘어난다면 비밀번호가 '
+                             '복호화 가능한 상태라는 뜻이므로 보안 담당자에게 '
+                             '보고해야 한다.')
         except binascii.Error:
             pass
     if not notes:
