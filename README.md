@@ -37,8 +37,10 @@ Oracle Database 테이블 컬럼에 대한 양방향 암복호화 및 일방향 
 ## 점검 실행
 
 ```
-./tools/run_checks.sh
+python tools/run_checks.py
 ```
+
+리눅스와 맥에서는 `./tools/run_checks.sh`, 윈도우에서는 `tools\run_checks.bat` 도 같은 일을 합니다. 윈도우에는 `python3` 명령이 대개 없으므로 `py -3` 을 쓰십시오.
 
 참조 구현 시험, 시험 벡터의 최신 여부, PL/SQL 정적 점검, 자바 연동 모듈의 컴파일과 벡터 대조를 차례로 수행합니다. 오라클 인스턴스 없이 돌아갑니다.
 
