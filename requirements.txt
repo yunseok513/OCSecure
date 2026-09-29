@@ -1,0 +1,10 @@
+# 참조 구현(tools/refimpl)이 쓰는 파이썬 패키지.
+#
+# AES 연산에만 필요하다. 해시와 키 유도는 표준 라이브러리만으로 되므로,
+# 저장 방식 식별기(tools/legacy_pwd_probe.py)는 이것 없이도 돌아간다.
+#
+#   pip install -r requirements.txt
+#
+# 폐쇄망이라 내려받을 수 없다면 참조 구현 시험만 건너뛰면 된다.
+# PL/SQL 정적 점검과 자바 컴파일은 영향받지 않는다.
+cryptography>=3.4

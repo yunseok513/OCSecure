@@ -26,3 +26,8 @@ replay_pid*
 # Python
 __pycache__/
 *.pyc
+
+# Maven / Gradle
+target/
+build/
+.gradle/
