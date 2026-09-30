@@ -17,6 +17,10 @@ GRANT EXECUTE ON PKG_KEY_ADMIN    TO OCS_ROLE_KEYADM;
 GRANT EXECUTE ON PKG_REKEY        TO OCS_ROLE_KEYADM;
 GRANT EXECUTE ON PKG_KEK_PROVIDER TO OCS_ROLE_KEYADM;   -- 개발 환경의 마스터 키 주입용
 GRANT SELECT  ON V_SEC_KEY_STATUS TO OCS_ROLE_KEYADM;
+-- 역할로 받은 권한은 저장 프로시저 안에서 인정되지 않고, 익명 블록에서도 기본
+-- 역할 설정에 따라 달라질 수 있다. 관리 스크립트가 이 뷰를 조회하므로 계정에
+-- 직접 부여한다. 읽기 전용이고 키 값은 이 뷰에 나오지 않으므로 위험이 없다.
+GRANT SELECT  ON V_SEC_KEY_STATUS TO OCS_KEYADM;
 
 -- 감사자 -----------------------------------------------------------------------
 GRANT SELECT ON SEC_AUDIT_LOG          TO OCS_ROLE_AUDITOR;
