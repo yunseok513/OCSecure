@@ -50,6 +50,16 @@ DECLARE
 BEGIN
   DBMS_OUTPUT.PUT_LINE('=== OCSecure 환경 점검 (대상: TO-BE 데이터베이스) ===');
   DBMS_OUTPUT.PUT_LINE('  실행 계정: ' || SYS_CONTEXT('USERENV', 'SESSION_USER'));
+  DBMS_OUTPUT.PUT_LINE('  컨테이너: ' || SYS_CONTEXT('USERENV', 'CON_NAME'));
+
+  -- 루트에 설치하면 안 된다. 여기서 먼저 잡는다.
+  IF SYS_CONTEXT('USERENV', 'CON_NAME') = 'CDB$ROOT' THEN
+    DBMS_OUTPUT.PUT_LINE('');
+    ng('컨테이너 루트에 접속해 있다. 업무 PDB 가 아니다');
+    DBMS_OUTPUT.PUT_LINE('    ALTER SESSION SET CONTAINER = <PDB이름>; 으로 들어간 뒤');
+    DBMS_OUTPUT.PUT_LINE('    다시 실행할 것. PDB 목록은 000_where_am_i.sql 로 확인한다.');
+    DBMS_OUTPUT.PUT_LINE('');
+  END IF;
 
   SELECT banner INTO v_banner FROM v$version WHERE ROWNUM = 1;
   DBMS_OUTPUT.PUT_LINE('  버전: ' || v_banner);
@@ -104,9 +114,11 @@ BEGIN
 
   ---------------------------------------------- 3. 문자집합 변환
   BEGIN
-    v_dummy := UTL_I18N.STRING_TO_RAW('가', 'AL32UTF8');
+    -- 원본 파일의 한글 글자를 쓰면 접속 도구의 문자집합 설정에 따라 값이
+    -- 달라져 엉뚱하게 실패할 수 있다. 유니코드 부호로 지정하여 그 영향을 없앤다.
+    v_dummy := UTL_I18N.STRING_TO_RAW(UNISTR('\AC00'), 'AL32UTF8');
     IF v_dummy = HEXTORAW('EAB080') THEN
-      ok('UTL_I18N UTF-8 인코딩 정상');
+      ok('UTL_I18N UTF-8 인코딩 정상 (이 컨테이너 문자집합: ' || v_cs || ')');
     ELSE
       ng('UTL_I18N UTF-8 인코딩 결과가 예상과 다름: ' || RAWTOHEX(v_dummy));
     END IF;
