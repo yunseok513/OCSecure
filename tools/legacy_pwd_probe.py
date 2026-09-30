@@ -71,6 +71,30 @@ def layouts_of(pwd, uid, salt=None):
     return out
 
 
+def plain_variants(plain):
+    """같은 값이 표기만 다르게 들어갔을 수 있는 경우를 넓힌다.
+
+    주민등록번호처럼 구분자가 붙었다 떨어졌다 하는 값에서 특히 중요하다.
+    13자리 숫자면 하이픈을 넣은 꼴도, 하이픈이 있으면 뗀 꼴도 함께 시도한다.
+    """
+    out = [plain]
+    bare = plain.replace('-', '').replace(' ', '')
+    if bare != plain:
+        out.append(bare)
+    if len(bare) == 13 and bare.isdigit():
+        out.append(bare[:6] + '-' + bare[6:])
+    for v in list(out):
+        if v.lower() != v:
+            out.append(v.lower())
+        if v.upper() != v:
+            out.append(v.upper())
+    seen, uniq = set(), []
+    for v in out:
+        if v not in seen:
+            seen.add(v); uniq.append(v)
+    return uniq
+
+
 def normalize(stored):
     """저장값 문자열을 비교하기 좋게 다듬는다."""
     return stored.strip()
@@ -78,6 +102,16 @@ def normalize(stored):
 
 def probe(plain, stored, uid, salt=None):
     stored = normalize(stored)
+    hits = []
+    for v in plain_variants(plain):
+        for h in _probe_one(v, stored, uid, salt):
+            tag = h if v == plain else h + ' / 입력 표기 "%s"' % v
+            if tag not in hits:
+                hits.append(tag)
+    return hits
+
+
+def _probe_one(plain, stored, uid, salt=None):
     hits = []
 
     # 평문 저장은 드물지 않고, 발견되면 가장 시급한 사안이므로 먼저 본다.
