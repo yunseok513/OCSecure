@@ -209,3 +209,7 @@ CREATE TABLE SEC_REKEY_JOB (
 
 COMMENT ON COLUMN SEC_REKEY_JOB.last_pk IS
   '마지막으로 처리한 기본 키 값. 중단 후 재시작 지점이 된다.';
+
+-- 위 설정 행들을 확정한다. 뒤따르는 DDL 이 자동으로 확정해 주기는 하지만,
+-- 그 동작에 기대지 않고 명시한다.
+COMMIT;
