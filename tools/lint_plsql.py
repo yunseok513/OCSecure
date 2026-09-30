@@ -12,6 +12,7 @@
   4. 블록 종결자(/)가 CREATE 문마다 있는가
   5. 패키지 간 호출(PKG_X.foo)이 실제로 명세에 있는 이름을 가리키는가
   6. SQLERRM / SQLCODE 를 SQL 문 안에서 직접 쓰고 있지는 않은가
+  7. SQL 문 안에서 지역 서브프로그램을 부르고 있지는 않은가
 """
 
 import glob
@@ -35,7 +36,10 @@ RE_TYPE = re.compile(
 RE_CALL = re.compile(r'\b(PKG_[A-Z0-9_]+)\.([A-Z0-9_]+)', re.IGNORECASE)
 # SQL 문 안에서는 SQLERRM 과 SQLCODE 를 직접 쓸 수 없다(PLS-00049 계열 오류).
 # 반드시 PL/SQL 변수로 받아 두고 그 변수를 SQL 문에 넘겨야 한다.
-RE_DML = re.compile(r'^(INSERT|UPDATE|DELETE|MERGE|SELECT)\b', re.IGNORECASE)
+# SQL 문을 세미콜론 단위로 자르면 PL/SQL 구조 때문에 경계가 어긋난다. 키워드에서
+# 시작해 세미콜론까지 훑되, 블록 키워드를 만나면 거기서 끊는다.
+RE_DML = re.compile(r'\b(INSERT|UPDATE|DELETE|MERGE|SELECT)\b[^;]*', re.IGNORECASE)
+RE_DML_STOP = re.compile(r'\b(LOOP|THEN|BEGIN|ELSE|ELSIF|END)\b', re.IGNORECASE)
 RE_ERRFN = re.compile(r'\b(SQLERRM|SQLCODE)\b', re.IGNORECASE)
 
 
@@ -96,6 +100,18 @@ def check_calls(path, public):
     return errs
 
 
+def dml_statements(text):
+    """SQL 문으로 볼 수 있는 구간만 뽑는다. 주석과 문자열은 미리 지워져 있어야 한다."""
+    out = []
+    for m in RE_DML.finditer(text):
+        stmt = m.group(0)
+        stop = RE_DML_STOP.search(stmt)
+        if stop:
+            stmt = stmt[:stop.start()]
+        out.append((m.group(1).upper(), stmt))
+    return out
+
+
 def check_sql_errfn(path):
     """SQLERRM / SQLCODE 가 SQL 문 안에 직접 놓였는지 본다.
 
@@ -105,16 +121,45 @@ def check_sql_errfn(path):
     """
     errs = []
     text = strip_strings(strip_comments(open(path, encoding='utf-8').read()))
-    for stmt in text.split(';'):
-        head = stmt.strip()
-        if not RE_DML.match(head):
-            continue
-        m = RE_ERRFN.search(head)
+    for kind, stmt in dml_statements(text):
+        m = RE_ERRFN.search(stmt)
         if m:
             errs.append('%s: %s 를 SQL 문(%s) 안에서 직접 쓰고 있다. '
                         'PL/SQL 변수로 먼저 받아서 넘겨야 한다'
-                        % (os.path.basename(path), m.group(1).upper(),
-                           head.split()[0].upper()))
+                        % (os.path.basename(path), m.group(1).upper(), kind))
+    return errs
+
+
+def check_local_in_sql(path, public):
+    """SQL 문 안에서 지역 서브프로그램을 부르는지 본다.
+
+    익명 블록의 중첩 함수나 패키지 본문에만 있는 비공개 함수는 SQL 엔진에 보이지
+    않는다. SQL 문 안에 그대로 쓰면 ORA-00904(부적절한 식별자) 가 난다. 값을 먼저
+    PL/SQL 변수로 받아 두고 그 변수를 SQL 문에 넘겨야 한다.
+    """
+    errs = []
+    text = strip_strings(strip_comments(open(path, encoding='utf-8').read()))
+
+    for unit in split_units(text):
+        m = RE_PKG.search(unit)
+        pkg = m.group(2).upper() if m else None
+        exposed = set(public.get(pkg, ())) if pkg else set()
+        # 다른 패키지의 공개 이름은 어차피 한정 호출(PKG_X.foo)로 쓰므로 여기서는 보지 않는다.
+        local = {d.group(2).upper() for d in RE_SUB.finditer(unit)} - exposed
+        if not local:
+            continue
+
+        seen = set()
+        for kind, stmt in dml_statements(unit):
+            for name in local:
+                if name in seen:
+                    continue
+                # 한정 호출(PKG_X.foo)은 대상이 아니므로 앞에 점이 없는 경우만 본다.
+                if re.search(r'(?<![.\w])' + name + r'\s*\(', stmt, re.IGNORECASE):
+                    seen.add(name)
+                    errs.append('%s: SQL 문(%s) 안에서 지역 서브프로그램 %s 를 부르고 있다. '
+                                'PL/SQL 변수로 먼저 받아서 넘겨야 한다'
+                                % (os.path.basename(path), kind, name))
     return errs
 
 
@@ -170,6 +215,7 @@ def main():
     for f in call_files:
         all_errs.extend(check_calls(f, public))
         all_errs.extend(check_sql_errfn(f))
+        all_errs.extend(check_local_in_sql(f, public))
 
     for e in all_errs:
         print('  [오류] ' + e)

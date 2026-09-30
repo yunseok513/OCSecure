@@ -50,14 +50,17 @@ DECLARE
   END chk;
 
   PROCEDURE put_key(p_key_id PLS_INTEGER, p_domain VARCHAR2, p_state VARCHAR2) IS
+    -- katr 는 이 블록 안에서만 선언한 지역 함수라 SQL 문에서는 보이지 않는다.
+    -- INSERT 안에 그대로 쓰면 ORA-00904 가 난다. 값을 먼저 변수로 받아서 넘긴다.
+    v_enc RAW(2000) := PKG_KEY_STORE.wrap(katr('ENC_KEY'));
+    v_mac RAW(2000) := PKG_KEY_STORE.wrap(katr('MAC_KEY'));
+    v_idx RAW(2000) := PKG_KEY_STORE.wrap(katr('IDX_KEY'));
   BEGIN
     INSERT INTO SEC_KEY (key_id, domain_code, alg_id, key_state,
                          enc_key_wrapped, mac_key_wrapped, idx_key_wrapped,
                          activated_at, note)
     VALUES (p_key_id, p_domain, PKG_PROVIDER_DBMS.c_alg_aes256_cbc, p_state,
-            PKG_KEY_STORE.wrap(katr('ENC_KEY')),
-            PKG_KEY_STORE.wrap(katr('MAC_KEY')),
-            PKG_KEY_STORE.wrap(katr('IDX_KEY')),
+            v_enc, v_mac, v_idx,
             SYSTIMESTAMP, '자체 시험용 고정 키');
   END put_key;
 
