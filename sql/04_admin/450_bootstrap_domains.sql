@@ -67,5 +67,8 @@ SELECT domain_code, key_id, key_state, alg_id FROM OCS_OWNER.V_SEC_KEY_STATUS
 
 PROMPT
 PROMPT 도메인 4건에 각각 ACTIVE 키가 하나씩 있어야 한다.
+PROMPT
+PROMPT 여기까지로는 아직 쓸 수 없다. 위 도메인들이 애플리케이션 인증 문맥을
+PROMPT 요구하므로, 460_appctx_key.sql 로 증표용 키를 등록해야 한다.
 
 SET FEEDBACK ON
