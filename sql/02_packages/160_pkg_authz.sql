@@ -48,7 +48,8 @@ CREATE OR REPLACE PACKAGE BODY PKG_AUTHZ AS
   BEGIN
     IF NOT has_admin(p_privilege) THEN
       PKG_AUDIT.log('ADMIN_DENIED', 'ALERT', NULL, '요청 권한: ' || p_privilege);
-      PKG_SEC_ERR.raise_err(PKG_SEC_ERR.e_no_reveal, '관리 권한 없음: ' || p_privilege);
+      -- 복호화 권한과 관리 권한은 다른 것이다. 같은 코드를 쓰면 원인을 잘못 짚게 된다.
+      PKG_SEC_ERR.raise_err(PKG_SEC_ERR.e_no_admin, '관리 권한 없음: ' || p_privilege);
     END IF;
   END require_admin;
 

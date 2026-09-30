@@ -10,6 +10,7 @@ CREATE OR REPLACE PACKAGE PKG_SEC_ERR AS
   e_no_reveal      CONSTANT PLS_INTEGER := -20520;  -- 복호화 권한 없음
   e_no_app_ctx     CONSTANT PLS_INTEGER := -20521;  -- 애플리케이션 인증 문맥 없음
   e_rate_limit     CONSTANT PLS_INTEGER := -20522;  -- 복호화 사용량 임계치 초과
+  e_no_admin       CONSTANT PLS_INTEGER := -20523;  -- 관리 권한 없음(복호화 권한과 다르다)
   e_no_domain      CONSTANT PLS_INTEGER := -20530;  -- 도메인 정의 없음
   e_bad_config     CONSTANT PLS_INTEGER := -20540;  -- 설정값 오류
   e_bad_arg        CONSTANT PLS_INTEGER := -20541;  -- 인자 오류
@@ -29,6 +30,7 @@ CREATE OR REPLACE PACKAGE BODY PKG_SEC_ERR AS
              WHEN e_no_reveal     THEN '복호화 권한 없음'
              WHEN e_no_app_ctx    THEN '애플리케이션 인증 문맥 없음'
              WHEN e_rate_limit    THEN '복호화 사용량 임계치 초과'
+             WHEN e_no_admin      THEN '관리 권한 없음'
              WHEN e_no_domain     THEN '정의되지 않은 도메인'
              WHEN e_bad_config    THEN '설정값 오류'
              WHEN e_bad_arg       THEN '인자 오류'
