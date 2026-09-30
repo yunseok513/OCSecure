@@ -31,3 +31,6 @@ __pycache__/
 target/
 build/
 .gradle/
+
+# 반입 꾸러미
+dist/
