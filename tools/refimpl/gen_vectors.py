@@ -111,7 +111,10 @@ def emit_sql(v, path):
     out.append("COMMIT;")
     out.append("SET DEFINE ON")
     out.append("")
-    with open(path, 'w', encoding='utf-8') as fh:
+    # newline 을 고정하지 않으면 윈도우에서 CRLF 로 쓰인다. 그러면 같은 내용인데도
+    # 저장소 파일과 바이트가 달라져 최신 여부 점검이 헛돈다. 어디서 만들든 같은
+    # 파일이 나와야 하므로 줄바꿈을 못 박는다.
+    with open(path, 'w', encoding='utf-8', newline='\n') as fh:
         fh.write('\n'.join(out))
 
 
@@ -147,7 +150,7 @@ def emit_properties(v, path):
         put('pwd.%d.legacy_cp949' % i, pw['legacy_cp949'])
     put('pwd.count', len(v['passwords']))
 
-    with open(path, 'w', encoding='utf-8') as fh:
+    with open(path, 'w', encoding='utf-8', newline='\n') as fh:
         fh.write('\n'.join(lines) + '\n')
 
 
@@ -155,7 +158,7 @@ def main():
     root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     v = build()
     jpath = os.path.join(root, 'tests', 'vectors', 'kat.json')
-    with open(jpath, 'w', encoding='utf-8') as fh:
+    with open(jpath, 'w', encoding='utf-8', newline='\n') as fh:
         json.dump(v, fh, ensure_ascii=False, indent=2)
     spath = os.path.join(root, 'sql', '09_test', '901_kat_data.sql')
     emit_sql(v, spath)

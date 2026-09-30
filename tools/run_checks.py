@@ -22,7 +22,6 @@
 """
 
 import argparse
-import filecmp
 import os
 import shutil
 import subprocess
@@ -77,6 +76,19 @@ def run_utf8(args):
     return proc.returncode
 
 
+def same_content(path_a, path_b):
+    """줄바꿈 차이를 뺀 내용 비교.
+
+    형상 관리 설정에 따라 내려받은 파일이 CRLF 일 수 있다. 줄바꿈은 운영체제와
+    도구가 만들어 내는 차이일 뿐 벡터의 내용이 아니므로, 그것 때문에 점검이
+    실패하면 진짜 문제를 가린다.
+    """
+    def norm(p):
+        with open(p, 'rb') as fh:
+            return fh.read().replace(b'\r\n', b'\n')
+    return norm(path_a) == norm(path_b)
+
+
 def has_cryptography():
     return subprocess.call(
         [sys.executable, '-c', 'import cryptography.hazmat.primitives.ciphers'],
@@ -119,13 +131,20 @@ def check_vectors():
         for rel in VECTOR_FILES:
             cur = os.path.join(ROOT, rel)
             old = os.path.join(backup, os.path.basename(rel))
-            if not filecmp.cmp(cur, old, shallow=False):
+            if not same_content(cur, old):
                 print('  [오류] %s 이(가) 참조 구현과 어긋난다.' % rel)
                 print('         재생성 결과를 확인하고 함께 커밋할 것.')
                 failed.append('시험 벡터 대조')
                 return
         print('  [정상] 시험 벡터가 참조 구현과 일치한다')
     finally:
+        # 점검은 작업 파일을 바꾸지 않는다. 다시 만들어 본 것은 대조용일 뿐이므로
+        # 원래 파일을 되돌려 놓는다. 어긋난 경우에도 마찬가지이며, 갱신은
+        # gen_vectors.py 를 직접 돌려 의도적으로 해야 한다.
+        for rel in VECTOR_FILES:
+            old = os.path.join(backup, os.path.basename(rel))
+            if os.path.exists(old):
+                shutil.copy(old, os.path.join(ROOT, rel))
         shutil.rmtree(backup, ignore_errors=True)
 
 
