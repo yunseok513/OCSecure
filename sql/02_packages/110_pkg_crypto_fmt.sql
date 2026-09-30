@@ -65,9 +65,18 @@ CREATE OR REPLACE PACKAGE BODY PKG_CRYPTO_FMT AS
   END dword_of;
 
   FUNCTION int_of(p_r IN RAW) RETURN PLS_INTEGER IS
+    v_len PLS_INTEGER := NVL(UTL_RAW.LENGTH(p_r), 0);
   BEGIN
+    -- UTL_RAW.COPIES 는 반복 횟수가 1 이상이어야 한다. 0 을 주면 ORA-06502 이 난다.
+    -- 네 바이트를 그대로 넘기는 경우(예: 비밀번호 저장값의 반복 횟수)가 여기에
+    -- 해당하므로, 길이별로 나누어 처리한다.
+    IF v_len = 0 THEN
+      RETURN 0;
+    ELSIF v_len >= 4 THEN
+      RETURN UTL_RAW.CAST_TO_BINARY_INTEGER(UTL_RAW.SUBSTR(p_r, v_len - 3, 4));
+    END IF;
     RETURN UTL_RAW.CAST_TO_BINARY_INTEGER(
-             UTL_RAW.CONCAT(UTL_RAW.COPIES(HEXTORAW('00'), 4 - UTL_RAW.LENGTH(p_r)), p_r));
+             UTL_RAW.CONCAT(UTL_RAW.COPIES(HEXTORAW('00'), 4 - v_len), p_r));
   END int_of;
 
   FUNCTION const_eq(p_a IN RAW, p_b IN RAW) RETURN BOOLEAN IS

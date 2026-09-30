@@ -112,6 +112,20 @@ BEGIN
   COMMIT;
   PKG_KEY_STORE.flush_cache;
 
+  ------------------------------------------------------- 0. 포맷 기본 연산
+  -- 길이 1, 2, 4 바이트를 모두 확인한다. 4 바이트는 비밀번호 저장값의 반복
+  -- 횟수를 읽을 때만 쓰이는 경로여서 한동안 시험에서 빠져 있었다.
+  chk('한 바이트 정수 읽기',  PKG_CRYPTO_FMT.int_of(HEXTORAW('7F')) = 127);
+  chk('한 바이트 최대값',     PKG_CRYPTO_FMT.int_of(HEXTORAW('FF')) = 255);
+  chk('두 바이트 정수 읽기',  PKG_CRYPTO_FMT.int_of(HEXTORAW('0100')) = 256);
+  chk('네 바이트 정수 읽기',  PKG_CRYPTO_FMT.int_of(HEXTORAW('00002710')) = 10000);
+  chk('바이트 쓰기와 읽기가 왕복한다',
+      PKG_CRYPTO_FMT.int_of(PKG_CRYPTO_FMT.byte_of(200)) = 200);
+  chk('두 바이트 쓰기와 읽기가 왕복한다',
+      PKG_CRYPTO_FMT.int_of(PKG_CRYPTO_FMT.word_of(65535)) = 65535);
+  chk('네 바이트 쓰기와 읽기가 왕복한다',
+      PKG_CRYPTO_FMT.int_of(PKG_CRYPTO_FMT.dword_of(1000000)) = 1000000);
+
   ------------------------------------------------------- 1. 키 래핑 왕복
   chk('마스터 키로 감싼 데이터 키가 그대로 풀린다',
       PKG_KEY_STORE.unwrap(PKG_KEY_STORE.wrap(katr('ENC_KEY'))) = katr('ENC_KEY'));
