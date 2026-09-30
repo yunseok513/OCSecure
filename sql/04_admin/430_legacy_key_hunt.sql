@@ -10,19 +10,30 @@
 -- 암호화를 데이터베이스 안에서 했다면 흔적이 사전에 남는다. 이 스크립트는 그
 -- 흔적을 훑는다. 아무것도 나오지 않으면 암호화는 애플리케이션 쪽에서 한 것이므로
 -- 원본과 설정 파일을 뒤져야 한다. 어디를 볼지는 docs/90 에 적어 두었다.
+--
+-- 기존 시스템은 오래된 판일 수 있으므로 옛 문법만 쓴다. REGEXP_LIKE 와 투명
+-- 데이터 암호화 관련 사전은 오라클 10g 부터 있으므로 여기서는 쓰지 않는다.
+-- LIKE 와 UNION ALL 만으로 같은 일을 한다.
 
-SET SERVEROUTPUT ON SIZE UNLIMITED
+SET SERVEROUTPUT ON SIZE 1000000
 SET LINESIZE 200
 SET PAGESIZE 200
 SET FEEDBACK OFF
 
-COLUMN owner        FORMAT A20
-COLUMN name         FORMAT A32
-COLUMN type         FORMAT A14
-COLUMN line         FORMAT 99999
-COLUMN text         FORMAT A70
-COLUMN table_name   FORMAT A32
-COLUMN column_name  FORMAT A32
+COLUMN 판 FORMAT A40
+COLUMN owner FORMAT A20
+COLUMN name FORMAT A32
+COLUMN type FORMAT A14
+COLUMN referenced_name FORMAT A26
+COLUMN table_name FORMAT A32
+COLUMN column_name FORMAT A32
+COLUMN 걸린말 FORMAT A16
+
+PROMPT
+PROMPT === 0. 데이터베이스 판 ===
+SELECT product || ' ' || version AS 판
+  FROM product_component_version
+ WHERE product LIKE 'Oracle%';
 
 PROMPT
 PROMPT === 1. 암호 관련 내장 패키지를 쓰는 객체 ===
@@ -35,48 +46,49 @@ SELECT owner, name, type, referenced_name
  ORDER BY owner, name;
 
 PROMPT
-PROMPT === 2. 원본에 키로 보이는 문자열이 있는 객체 ===
--- 이름만 보여 준다. 값 자체는 찍지 않는다. 화면과 기록에 키가 남으면 안 된다.
-SELECT DISTINCT owner, name, type
-  FROM all_source
- WHERE owner NOT IN ('SYS','SYSTEM','XDB','MDSYS','CTXSYS','ORDSYS','WMSYS','OLAPSYS',
-                     'GSMADMIN_INTERNAL','AUDSYS','DVSYS','LBACSYS','APPQOSSYS','DBSNMP',
-                     'OCS_OWNER')
-   AND (UPPER(text) LIKE '%ENCRYPT%'
-     OR UPPER(text) LIKE '%DECRYPT%'
-     OR UPPER(text) LIKE '%CIPHER%'
-     OR UPPER(text) LIKE '%SECRET%'
-     OR UPPER(text) LIKE '%ARIA%'
-     OR UPPER(text) LIKE '%SEED%'
-     OR REGEXP_LIKE(text, 'KEY\s*(:=|=)', 'i'))
- ORDER BY owner, name;
+PROMPT === 2. 원본에 암호 관련 낱말이 있는 객체 ===
+-- 이름과 걸린 낱말만 보여 준다. 원본 줄은 찍지 않는다. 화면과 기록에 키가 남으면 안 된다.
+SELECT DISTINCT s.owner, s.name, s.type, k.w AS 걸린말
+  FROM all_source s,
+       (SELECT 'ENCRYPT' AS w FROM dual
+        UNION ALL SELECT 'DECRYPT' FROM dual
+        UNION ALL SELECT 'CIPHER'  FROM dual
+        UNION ALL SELECT 'SECRET'  FROM dual
+        UNION ALL SELECT 'ARIA'    FROM dual
+        UNION ALL SELECT 'SEED'    FROM dual
+        UNION ALL SELECT 'CRYPT'   FROM dual) k
+ WHERE s.owner NOT IN ('SYS','SYSTEM','XDB','MDSYS','CTXSYS','ORDSYS','WMSYS','OLAPSYS',
+                       'GSMADMIN_INTERNAL','AUDSYS','DVSYS','LBACSYS','APPQOSSYS','DBSNMP',
+                       'OCS_OWNER')
+   AND UPPER(s.text) LIKE '%' || k.w || '%'
+ ORDER BY 1, 2, 4;
 
 PROMPT
 PROMPT === 3. 키 보관용으로 보이는 테이블 ===
-SELECT owner, table_name, column_name
-  FROM all_tab_columns
- WHERE owner NOT IN ('SYS','SYSTEM','XDB','MDSYS','CTXSYS','ORDSYS','WMSYS','OLAPSYS',
-                     'GSMADMIN_INTERNAL','AUDSYS','DVSYS','LBACSYS','APPQOSSYS','DBSNMP',
-                     'OCS_OWNER')
-   AND (REGEXP_LIKE(table_name,  '(CRYPT|CIPHER|SECRET|KEYSTORE|KEY_?(TAB|MST|INFO|MGMT))', 'i')
-     OR REGEXP_LIKE(column_name, '(ENC_?KEY|CRYPT_?KEY|SECRET_?KEY|IV_?VAL|SALT)', 'i'))
- ORDER BY owner, table_name, column_name;
-
-PROMPT
-PROMPT === 4. 투명 데이터 암호화(TDE) 적용 여부 ===
--- TDE 라면 응용이 Base64 를 볼 일이 없으므로 이번 건과는 다르다. 확인만 한다.
-SELECT owner, table_name, column_name, encryption_alg
-  FROM dba_encrypted_columns
- ORDER BY owner, table_name;
-
-PROMPT
-PROMPT === 5. 지갑(wallet) 상태 ===
-SELECT wrl_type, status, wallet_type FROM v$encryption_wallet;
+SELECT DISTINCT c.owner, c.table_name, c.column_name, k.w AS 걸린말
+  FROM all_tab_columns c,
+       (SELECT 'CRYPT'  AS w FROM dual
+        UNION ALL SELECT 'CIPHER'   FROM dual
+        UNION ALL SELECT 'SECRET'   FROM dual
+        UNION ALL SELECT 'KEYSTORE' FROM dual
+        UNION ALL SELECT 'ENCKEY'   FROM dual
+        UNION ALL SELECT 'ENC_KEY'  FROM dual
+        UNION ALL SELECT 'KEY_'     FROM dual
+        UNION ALL SELECT '_KEY'     FROM dual
+        UNION ALL SELECT 'SALT'     FROM dual) k
+ WHERE c.owner NOT IN ('SYS','SYSTEM','XDB','MDSYS','CTXSYS','ORDSYS','WMSYS','OLAPSYS',
+                       'GSMADMIN_INTERNAL','AUDSYS','DVSYS','LBACSYS','APPQOSSYS','DBSNMP',
+                       'OCS_OWNER')
+   AND (UPPER(c.table_name)  LIKE '%' || k.w || '%'
+        OR UPPER(c.column_name) LIKE '%' || k.w || '%')
+ ORDER BY 1, 2, 3;
 
 PROMPT
 PROMPT 1번과 2번에 이름이 나오면 그 객체의 원본을 직접 보아야 한다.
 PROMPT   SELECT text FROM all_source WHERE owner='<소유자>' AND name='<이름>' ORDER BY line;
 PROMPT 아무것도 나오지 않으면 암호화는 애플리케이션 쪽에서 한 것이다.
-PROMPT 4번과 5번에서 권한 오류가 나면 그 부분만 건너뛰어도 된다.
+PROMPT
+PROMPT 3번의 LIKE 에는 밑줄이 한 글자 대신으로 쓰이므로 KEY_ 와 _KEY 는 넓게 걸린다.
+PROMPT 그만큼 관계없는 컬럼도 함께 나오므로 이름을 보고 추려야 한다.
 
 SET FEEDBACK ON
