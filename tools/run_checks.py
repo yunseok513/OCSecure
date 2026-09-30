@@ -31,6 +31,14 @@ import tempfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+# 콘솔이 표현하지 못하는 글자가 섞여도 죽지 않게 한다. 죽는 것보다 물음표가 낫다.
+for _stream in (sys.stdout, sys.stderr):
+    if hasattr(_stream, 'reconfigure'):
+        try:
+            _stream.reconfigure(errors='replace')
+        except (ValueError, OSError):
+            pass
+
 VECTOR_FILES = [
     os.path.join('tests', 'vectors', 'kat.json'),
     os.path.join('tests', 'vectors', 'kat.properties'),
@@ -48,6 +56,25 @@ def title(text):
 def run(args, **kw):
     """자식 프로세스를 돌리고 종료 코드를 돌려준다."""
     return subprocess.call(args, cwd=ROOT, **kw)
+
+
+def run_utf8(args):
+    """출력을 UTF-8 로 받아 파이썬을 통해 다시 찍고 종료 코드를 돌려준다.
+
+    자바가 콘솔에 직접 찍게 두면 문자집합이 어긋난다. 리눅스에서 로캘이 C 이면
+    한글이 물음표가 되고, 한글 윈도우 콘솔은 코드 페이지가 949 라서 UTF-8 바이트를
+    잘못 읽어 글자가 깨진다. 자바에는 UTF-8 로 내보내게 하고 그것을 여기서 받아
+    파이썬으로 다시 찍으면, 콘솔에 맞추는 일은 파이썬이 알아서 한다.
+
+    출력을 모았다가 한 번에 찍으므로 진행 중에는 보이지 않는다. 자바 자체 시험은
+    1초 안에 끝나므로 문제가 되지 않는다.
+    """
+    proc = subprocess.run(args, cwd=ROOT, stdout=subprocess.PIPE,
+                          stderr=subprocess.STDOUT)
+    text = proc.stdout.decode('utf-8', errors='replace')
+    if text:
+        print(text, end='' if text.endswith('\n') else '\n')
+    return proc.returncode
 
 
 def has_cryptography():
@@ -132,9 +159,9 @@ def check_java():
             return
         print('  [정상] 경고 없이 컴파일되었다')
 
-        if run(['java', '-Dstdout.encoding=UTF-8', '-Dfile.encoding=UTF-8',
-                '-cp', out, 'ocsecure.client.OcsSelfTest',
-                os.path.join('tests', 'vectors', 'kat.properties')]) != 0:
+        if run_utf8(['java', '-Dstdout.encoding=UTF-8', '-Dfile.encoding=UTF-8',
+                     '-cp', out, 'ocsecure.client.OcsSelfTest',
+                     os.path.join('tests', 'vectors', 'kat.properties')]) != 0:
             failed.append('자바 자체 시험')
     finally:
         shutil.rmtree(out, ignore_errors=True)
