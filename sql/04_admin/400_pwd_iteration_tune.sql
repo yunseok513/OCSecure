@@ -7,6 +7,9 @@
 -- 전적으로 의존하므로, 측정한 뒤 응답 시간이 허용하는 범위에서 최대한 올린다.
 --
 -- 측정에 쓰는 문자열은 아무 값이나 상관없다. 반복 횟수만이 소요 시간을 좌우한다.
+--
+-- 이 스크립트는 아무것도 묻지 않고 아무것도 바꾸지 않는다. 재고 보여 줄 뿐이다.
+-- 변경 구문은 끝에 안내로만 나오므로 직접 실행해야 적용된다.
 
 SET SERVEROUTPUT ON SIZE UNLIMITED
 SET FEEDBACK OFF
@@ -56,28 +59,7 @@ END;
 /
 
 PROMPT
-PROMPT === 3. 저장값의 반복 횟수 분포 ===
-PROMPT     대상 테이블과 컬럼을 입력한다. 예) TB_USER 와 USER_PWD
-ACCEPT tbl CHAR PROMPT '  테이블(스키마.테이블): '
-ACCEPT col CHAR PROMPT '  비밀번호 컬럼명      : '
-
--- 저장값의 3번째 바이트부터 4바이트가 반복 횟수다. 복호화가 아니라 단순 판독이므로
--- 비밀번호를 알아내는 것과는 무관하다.
-SELECT UTL_RAW.CAST_TO_BINARY_INTEGER(UTL_RAW.SUBSTR(&col, 3, 4)) AS iterations,
-       COUNT(*)                                                   AS user_cnt
-  FROM &tbl
- WHERE &col IS NOT NULL
-   AND UTL_RAW.LENGTH(&col) = 54
- GROUP BY UTL_RAW.CAST_TO_BINARY_INTEGER(UTL_RAW.SUBSTR(&col, 3, 4))
- ORDER BY 1;
-
-PROMPT
-PROMPT     위 목록에 현재 설정보다 낮은 횟수가 남아 있다면, 그 사용자들은 아직
-PROMPT     옛 세기로 보호되고 있다. 로그인 성공 시점에 다시 계산하도록 애플리케이션이
-PROMPT     처리하고 있는지 확인한다. 처리하고 있다면 시간이 지나며 줄어든다.
-
-PROMPT
-PROMPT === 4. 반복 횟수 변경 ===
+PROMPT === 3. 반복 횟수 변경 ===
 PROMPT     아래 구문의 숫자를 측정 결과에 맞추어 고쳐 실행한다.
 PROMPT     변경은 즉시 반영되며, 이후 새로 저장되는 값부터 적용된다.
 PROMPT     기존 저장값은 그대로 두어도 검증에 문제가 없다.
@@ -87,5 +69,9 @@ PROMPT        WHERE cfg_key = 'PWD_ITERATIONS';
 PROMPT       COMMIT;
 PROMPT
 PROMPT     내린 적은 없어야 한다. 낮추면 이미 저장된 값보다 약한 값이 새로 생긴다.
+PROMPT
+PROMPT     이미 운영 중이어서 저장값이 쌓여 있다면, 401_pwd_iteration_dist.sql 로
+PROMPT     기존 저장값들이 어떤 반복 횟수로 만들어졌는지 살펴볼 수 있다.
+PROMPT     개통 전에는 저장값이 없으므로 그 스크립트는 쓸 일이 없다.
 
 SET FEEDBACK ON
