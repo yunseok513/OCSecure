@@ -42,6 +42,10 @@ def encodings_of(digest):
         'Base64': base64.b64encode(digest).decode('ascii'),
         'Base64(패딩 없음)': base64.b64encode(digest).decode('ascii').rstrip('='),
         'Base64 URL': base64.urlsafe_b64encode(digest).decode('ascii'),
+        # 16진 문자열을 만든 뒤 그 글자들을 다시 Base64 로 싼 구성. 국내 구축
+        # 시스템에서 드물지 않으며, 길이가 원시값 Base64 와 달라 구분이 된다.
+        'Base64(16진 문자열을 싼 것)':
+            base64.b64encode(digest.hex().encode('ascii')).decode('ascii'),
     }
 
 
@@ -49,10 +53,13 @@ def layouts_of(pwd, uid, salt=None):
     """평문을 어떤 순서로 이어 붙였을 수 있는지."""
     out = [('비밀번호만', pwd)]
     if uid:
+        out.append(('비밀번호{아이디} (Spring Security 방식)', pwd + '{' + uid + '}'))
         out.append(('아이디 + 비밀번호', uid + pwd))
         out.append(('비밀번호 + 아이디', pwd + uid))
         out.append(('아이디 + 비밀번호 + 아이디', uid + pwd + uid))
     if salt:
+        # Spring Security 의 이어 붙이기 규칙. 비밀번호와 소금을 중괄호로 잇는다.
+        out.append(('비밀번호{소금} (Spring Security 방식)', pwd + '{' + salt + '}'))
         # 소스에 박아 둔 고정 문자열을 섞는 구성. 사용자마다 값이 달라지지는
         # 않으므로 중복은 그대로 생기지만, 단순 해시와는 값이 다르다.
         out.append(('고정솔트 + 비밀번호', salt + pwd))
