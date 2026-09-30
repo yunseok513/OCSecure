@@ -28,23 +28,24 @@ DECLARE
   BEGIN DBMS_OUTPUT.PUT_LINE('  [실패] ' || p_msg); v_fail := v_fail + 1; END;
 
   -- DBMS_CRYPTO 호출은 동적 구문으로 감싼다. 권한이 없어도 이 블록은 컴파일된다.
-  FUNCTION try_crypto(p_body VARCHAR2) RETURN VARCHAR2 IS
+  -- 오류가 나지 않는 것만으로는 부족하므로 결과값까지 기대값과 대조한다.
+  -- 기대값은 참조 구현이 계산한 것이며 tools/refimpl 로 언제든 다시 얻을 수 있다.
+  PROCEDURE check_crypto(p_name   VARCHAR2,
+                         p_body   VARCHAR2,
+                         p_expect VARCHAR2 DEFAULT NULL) IS
     v RAW(64);
   BEGIN
     EXECUTE IMMEDIATE 'BEGIN :r := ' || p_body || '; END;' USING OUT v;
-    RETURN NULL;
-  EXCEPTION
-    WHEN OTHERS THEN RETURN SQLERRM;
-  END try_crypto;
-
-  PROCEDURE check_crypto(p_name VARCHAR2, p_body VARCHAR2) IS
-    v_err VARCHAR2(400) := try_crypto(p_body);
-  BEGIN
-    IF v_err IS NULL THEN
+    IF p_expect IS NULL THEN
       ok(p_name || ' 사용 가능');
+    ELSIF RAWTOHEX(v) = p_expect THEN
+      ok(p_name || ' 정상, 기대값과 일치');
     ELSE
-      ng(p_name || ' 사용 불가: ' || SUBSTR(v_err, 1, 120));
+      ng(p_name || ' 결과가 기대값과 다름: ' || RAWTOHEX(v));
     END IF;
+  EXCEPTION
+    WHEN OTHERS THEN
+      ng(p_name || ' 사용 불가: ' || SUBSTR(SQLERRM, 1, 120));
   END check_crypto;
 
 BEGIN
@@ -98,16 +99,19 @@ BEGIN
 
     -- 2. 필요한 알고리즘이 실제로 동작하는지
     check_crypto('DBMS_CRYPTO.HASH_SH256',
-      'DBMS_CRYPTO.HASH(UTL_RAW.CAST_TO_RAW(''x''), DBMS_CRYPTO.HASH_SH256)');
+      'DBMS_CRYPTO.HASH(UTL_RAW.CAST_TO_RAW(''x''), DBMS_CRYPTO.HASH_SH256)',
+      '2D711642B726B04401627CA9FBAC32F5C8530FB1903CC4DB02258717921A4881');
 
     check_crypto('DBMS_CRYPTO.HMAC_SH256',
       'DBMS_CRYPTO.MAC(UTL_RAW.CAST_TO_RAW(''x''), DBMS_CRYPTO.HMAC_SH256, '
-      || 'UTL_RAW.CAST_TO_RAW(''k''))');
+      || 'UTL_RAW.CAST_TO_RAW(''k''))',
+      'C38EDC8815C8489F64738978F44008F8596345545F0BAA68EF6FCF5C53E57189');
 
     check_crypto('AES-256 / CBC / PKCS5',
       'DBMS_CRYPTO.ENCRYPT(UTL_RAW.CAST_TO_RAW(''0123456789ABCDEF''), '
       || 'DBMS_CRYPTO.ENCRYPT_AES256 + DBMS_CRYPTO.CHAIN_CBC + DBMS_CRYPTO.PAD_PKCS5, '
-      || 'HEXTORAW(RPAD(''AA'', 64, ''AA'')), HEXTORAW(RPAD(''BB'', 32, ''BB'')))');
+      || 'HEXTORAW(RPAD(''AA'', 64, ''AA'')), HEXTORAW(RPAD(''BB'', 32, ''BB'')))',
+      '855A8EF73D5F405E3F493155CC77148D66650EFC4A7116D5FEA7ED2DC0BE0F30');
 
     check_crypto('DBMS_CRYPTO.RANDOMBYTES', 'DBMS_CRYPTO.RANDOMBYTES(16)');
   END IF;
