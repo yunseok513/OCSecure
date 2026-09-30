@@ -232,6 +232,15 @@ BEGIN
       chk('빈 비밀번호는 거부된다', SQLCODE = PKG_SEC_ERR.e_bad_arg, 'SQLCODE=' || SQLCODE);
   END;
 
+  chk('저장값이 비어 있으면 미설정 상태로 본다',
+      PKG_SECURE_API.pwd_state(NULL) = 0);
+  chk('현재 형식 저장값은 상태 1 로 본다',
+      PKG_SECURE_API.pwd_state(PKG_SECURE_API.make_pwd_str('Passw0rd!')) = 1);
+  chk('알 수 없는 형식은 상태 9 로 본다',
+      PKG_SECURE_API.pwd_state('이건아무것도아니다') = 9);
+  chk('미설정 저장값으로는 어떤 비밀번호도 통과하지 못한다',
+      PKG_SECURE_API.check_pwd('Passw0rd!', NULL) = 0);
+
   --------------------------------------- 8의2. 기존 체계(이행 대상)
   chk('기존 방식 계산이 참조 구현과 일치한다',
       PKG_LEGACY_PWD.legacy_hash(kat('PWD_PLAIN_0'), PKG_LEGACY_PWD.c_cs_utf8)

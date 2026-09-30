@@ -61,10 +61,20 @@ CREATE OR REPLACE PACKAGE PKG_SECURE_API AS
 
   FUNCTION make_pwd_str(p_password IN VARCHAR2) RETURN VARCHAR2;
 
-  -- 0 = 불일치
+  -- 0 = 불일치. 저장값이 비어 있는 경우도 여기에 포함된다.
   -- 1 = 일치, 현재 형식이다. 그대로 로그인시킨다.
   -- 2 = 일치, 옛 형식이다. 로그인시키되 비밀번호 변경을 강제한다.
   FUNCTION check_pwd(p_password IN VARCHAR2, p_stored IN VARCHAR2) RETURN NUMBER;
+
+  -- 저장값의 상태만 본다. 비밀번호를 입력받기 전에 화면을 고르는 데 쓴다.
+  -- 업무포털 단일 인증으로 들어오는 이용자는 비밀번호를 쓰지 않으므로 저장값이
+  -- 비어 있다. 그 상태를 로그인 실패와 구분해야 안내 문구를 제대로 낼 수 있다.
+  --
+  -- 0 = 미설정. 로그인시키지 말고 설정 절차로 보낸다.
+  -- 1 = 현재 형식
+  -- 2 = 옛 형식. 이행 기간에만 나타난다.
+  -- 9 = 알 수 없는 형식. 통과시키지 않는다. 자료 이상이므로 조사가 필요하다.
+  FUNCTION pwd_state(p_stored IN VARCHAR2) RETURN NUMBER;
 END PKG_SECURE_API;
 /
 
@@ -194,6 +204,23 @@ CREATE OR REPLACE PACKAGE BODY PKG_SECURE_API AS
     -- 어느 쪽도 아니면 조사에서 놓친 형식이다. 통과시키지 않는다.
     RETURN 0;
   END check_pwd;
+
+  FUNCTION pwd_state(p_stored IN VARCHAR2) RETURN NUMBER IS
+    c_hex_len CONSTANT PLS_INTEGER := PKG_CRYPTO_CORE.c_pwd_blob_len * 2;   -- 108
+  BEGIN
+    -- 오라클에서 빈 문자열은 널이므로 둘을 따로 볼 필요가 없다.
+    IF p_stored IS NULL THEN
+      RETURN 0;
+    END IF;
+    IF LENGTH(p_stored) = c_hex_len
+       AND REGEXP_LIKE(p_stored, '^[0-9A-Fa-f]+$') THEN
+      RETURN 1;
+    END IF;
+    IF PKG_LEGACY_PWD.is_legacy(p_stored) THEN
+      RETURN 2;
+    END IF;
+    RETURN 9;
+  END pwd_state;
 
 END PKG_SECURE_API;
 /
