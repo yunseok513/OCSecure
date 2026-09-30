@@ -17,8 +17,43 @@ import hashlib
 import hmac
 import json
 import os
+import sys
 
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import aes_pure  # noqa: E402
+
+# AES 는 검증된 라이브러리가 있으면 그것을 쓰고, 없으면 함께 담긴 구현으로
+# 대신한다. 두 경로가 같은 값을 내는 것은 tests/test_aes_pure.py 가 확인한다.
+#
+# 이 갈래를 둔 이유는 폐쇄망 때문이다. 외부 패키지에 매여 있으면 망이 분리된
+# 환경으로 옮길 때마다 설치 파일을 챙겨야 하고 판이 어긋나면 그마저 막힌다.
+# 어느 쪽으로 돌든 만들어 내는 시험 벡터는 바이트 단위로 같다.
+try:
+    from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+    HAVE_CRYPTOGRAPHY = True
+except ImportError:
+    HAVE_CRYPTOGRAPHY = False
+
+# 시험에서 두 경로를 모두 확인할 수 있도록 강제 전환 수단을 둔다.
+FORCE_PURE = False
+
+
+def _use_library():
+    return HAVE_CRYPTOGRAPHY and not FORCE_PURE
+
+
+def aes_cbc_encrypt(data, key, iv):
+    if _use_library():
+        enc = Cipher(algorithms.AES(key), modes.CBC(iv)).encryptor()
+        return enc.update(data) + enc.finalize()
+    return aes_pure.cbc_encrypt(data, key, iv)
+
+
+def aes_cbc_decrypt(data, key, iv):
+    if _use_library():
+        dec = Cipher(algorithms.AES(key), modes.CBC(iv)).decryptor()
+        return dec.update(data) + dec.finalize()
+    return aes_pure.cbc_decrypt(data, key, iv)
 
 # --- 포맷 상수 -------------------------------------------------------------
 
@@ -96,9 +131,7 @@ def encrypt_bytes(plain_bytes, key_id, enc_key, mac_key, iv=None):
     if len(iv) != IV_LEN:
         raise CryptoFormatError('iv must be 16 bytes')
 
-    body = _pkcs5_pad(plain_bytes)
-    encryptor = Cipher(algorithms.AES(enc_key), modes.CBC(iv)).encryptor()
-    ct = encryptor.update(body) + encryptor.finalize()
+    ct = aes_cbc_encrypt(_pkcs5_pad(plain_bytes), enc_key, iv)
 
     signed = _header(key_id) + iv + ct
     tag = hmac.new(mac_key, signed, hashlib.sha256).digest()
@@ -136,8 +169,7 @@ def decrypt_bytes(blob, enc_key, mac_key):
         raise CryptoFormatError('integrity check failed')
     iv = signed[HDR_LEN:HDR_LEN + IV_LEN]
     ct = signed[HDR_LEN + IV_LEN:]
-    decryptor = Cipher(algorithms.AES(enc_key), modes.CBC(iv)).decryptor()
-    return _pkcs5_unpad(decryptor.update(ct) + decryptor.finalize())
+    return _pkcs5_unpad(aes_cbc_decrypt(ct, enc_key, iv))
 
 
 def decrypt(blob, enc_key, mac_key):

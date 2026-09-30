@@ -17,8 +17,8 @@
   python tools/run_checks.py --strict    건너뛴 항목도 실패로 본다
   python tools/run_checks.py --only java 자바만 컴파일하고 시험한다
 
-앞의 두 점검은 cryptography 패키지를 필요로 한다. 없으면 건너뛰고 나머지를
-진행하며, 폐쇄망에서 흔한 상황이므로 기본은 실패로 보지 않는다.
+외부 패키지는 필요하지 않다. 표준 라이브러리만으로 돌아가므로 폐쇄망에서도
+그대로 쓸 수 있다. JDK 가 없으면 자바 항목만 건너뛴다.
 """
 
 import argparse
@@ -89,22 +89,8 @@ def same_content(path_a, path_b):
     return norm(path_a) == norm(path_b)
 
 
-def has_cryptography():
-    return subprocess.call(
-        [sys.executable, '-c', 'import cryptography.hazmat.primitives.ciphers'],
-        cwd=ROOT,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL) == 0
-
-
 def check_unit_tests():
     title('1. 참조 구현 시험')
-    if not has_cryptography():
-        print('  [건너뜀] cryptography 패키지가 없다.')
-        print('           pip install -r requirements.txt 로 설치할 수 있다.')
-        print('           폐쇄망이라 반입이 어렵다면 이 점검은 건너뛰어도 된다.')
-        skipped.append('참조 구현 시험')
-        return
     if run([sys.executable, '-m', 'unittest', 'discover', '-s', 'tests', '-q']) != 0:
         failed.append('참조 구현 시험')
     else:
@@ -113,11 +99,6 @@ def check_unit_tests():
 
 def check_vectors():
     title('2. 고정 시험 벡터 최신 여부')
-    if not has_cryptography():
-        print('  [건너뜀] cryptography 패키지가 없어 벡터를 다시 만들 수 없다.')
-        skipped.append('시험 벡터 대조')
-        return
-
     backup = tempfile.mkdtemp(prefix='ocsecure-vec-')
     try:
         for rel in VECTOR_FILES:
