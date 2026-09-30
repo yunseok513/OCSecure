@@ -28,6 +28,9 @@ import shutil
 import subprocess
 import sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import to_cp949   # noqa: E402  (같은 디렉터리의 변환 도구)
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # 꾸러미에 담을 것. 디렉터리는 통째로 옮긴다.
@@ -133,7 +136,13 @@ def write_readme(dest_dir, made_jar, made_wheels):
 ## 들어 있는 것
 
 `sql/` 은 오라클 설치와 관리와 시험 스크립트입니다. 설치 절차는 `sql/00_install.sql`
-에 있습니다.
+에 있습니다. 파일 인코딩은 UTF-8 입니다.
+
+`sql_cp949/` 는 같은 스크립트를 CP949(ANSI) 로 옮긴 사본입니다. 데이터베이스
+문자집합이 KO16MSWIN949 인 곳에서는 이쪽을 쓰십시오. `sql/` 을 그대로 실행하면
+주석과 문자열의 한글이 어긋나 일부 패키지가 컴파일되지 않습니다. 파일을 바꾸지
+않고 `NLS_LANG` 을 `KOREAN_KOREA.AL32UTF8` 로 두는 방법도 있으며, 둘 중 하나만
+택해야 합니다. 자세한 내용은 `docs/70_빌드_및_시험_설명서.md` 에 있습니다.
 
 `java/ocsecure-client-1.0.0.jar` 는 미리 컴파일한 자바 연동 라이브러리입니다.
 %s외부 의존성이 없으므로 업무 프로젝트의 라이브러리 경로에 두고 클래스패스에
@@ -241,6 +250,14 @@ def main():
         os.makedirs(os.path.dirname(target) or dest, exist_ok=True)
         shutil.copy2(os.path.join(ROOT, f), target)
     log('[정상] 원본과 문서와 스크립트를 담았다')
+
+    # 데이터베이스 문자집합이 KO16MSWIN949 인 곳에서 그대로 쓸 수 있도록
+    # CP949 로 옮긴 사본을 함께 담는다. 자세한 사정은 tools/to_cp949.py 참고.
+    n_f, _n_h, probs = to_cp949.convert(
+        os.path.join(ROOT, 'sql'), os.path.join(dest, 'sql_cp949'), False)
+    if probs:
+        log('[경고] CP949 로 옮기지 못한 파일 %d개가 있다' % len(probs))
+    log('[정상] CP949 사본 %d개를 sql_cp949/ 에 담았다' % n_f)
 
     made_jar = build_jar(dest) is not None
 

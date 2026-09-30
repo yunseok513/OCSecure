@@ -11,6 +11,7 @@
   3. 명세에 선언한 서브프로그램이 본문에 모두 정의되어 있는가
   4. 블록 종결자(/)가 CREATE 문마다 있는가
   5. 패키지 간 호출(PKG_X.foo)이 실제로 명세에 있는 이름을 가리키는가
+  6. SQLERRM / SQLCODE 를 SQL 문 안에서 직접 쓰고 있지는 않은가
 """
 
 import glob
@@ -32,6 +33,10 @@ RE_TYPE = re.compile(
     r'^\s*TYPE\s+([A-Z0-9_]+)\s+IS\b', re.IGNORECASE | re.MULTILINE)
 # PKG_로 시작하는 패키지에 대한 한정 호출만 본다. 오라클 내장 패키지는 대상이 아니다.
 RE_CALL = re.compile(r'\b(PKG_[A-Z0-9_]+)\.([A-Z0-9_]+)', re.IGNORECASE)
+# SQL 문 안에서는 SQLERRM 과 SQLCODE 를 직접 쓸 수 없다(PLS-00049 계열 오류).
+# 반드시 PL/SQL 변수로 받아 두고 그 변수를 SQL 문에 넘겨야 한다.
+RE_DML = re.compile(r'^(INSERT|UPDATE|DELETE|MERGE|SELECT)\b', re.IGNORECASE)
+RE_ERRFN = re.compile(r'\b(SQLERRM|SQLCODE)\b', re.IGNORECASE)
 
 
 def strip_comments(text):
@@ -91,6 +96,28 @@ def check_calls(path, public):
     return errs
 
 
+def check_sql_errfn(path):
+    """SQLERRM / SQLCODE 가 SQL 문 안에 직접 놓였는지 본다.
+
+    주석과 문자열을 지운 뒤 세미콜론으로 문장을 자르고, 첫 낱말이 DML 키워드인
+    문장만 검사한다. PL/SQL 대입문이나 프로시저 호출의 인자로 쓰는 것은 허용되므로
+    걸러내지 않는다.
+    """
+    errs = []
+    text = strip_strings(strip_comments(open(path, encoding='utf-8').read()))
+    for stmt in text.split(';'):
+        head = stmt.strip()
+        if not RE_DML.match(head):
+            continue
+        m = RE_ERRFN.search(head)
+        if m:
+            errs.append('%s: %s 를 SQL 문(%s) 안에서 직접 쓰고 있다. '
+                        'PL/SQL 변수로 먼저 받아서 넘겨야 한다'
+                        % (os.path.basename(path), m.group(1).upper(),
+                           head.split()[0].upper()))
+    return errs
+
+
 def check_file(path):
     errs = []
     raw = open(path, encoding='utf-8').read()
@@ -142,6 +169,7 @@ def main():
     public = collect_specs(pkg_files)
     for f in call_files:
         all_errs.extend(check_calls(f, public))
+        all_errs.extend(check_sql_errfn(f))
 
     for e in all_errs:
         print('  [오류] ' + e)

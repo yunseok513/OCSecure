@@ -144,6 +144,8 @@ CREATE OR REPLACE PACKAGE BODY PKG_REKEY AS
     v_last    NUMBER;
     v_plain   VARCHAR2(32767);
     v_done    NUMBER := 0;
+    -- SQLERRM 은 SQL 문 안에서 직접 쓸 수 없다. 반드시 변수로 받아서 넘긴다.
+    v_err     VARCHAR2(400);
   BEGIN
     PKG_AUTHZ.require_admin('REKEY');
 
@@ -234,9 +236,11 @@ CREATE OR REPLACE PACKAGE BODY PKG_REKEY AS
     WHEN NO_DATA_FOUND THEN
       PKG_SEC_ERR.raise_err(PKG_SEC_ERR.e_bad_arg, '작업 없음: ' || p_job_name);
     WHEN OTHERS THEN
+      -- 되돌리기 전에 먼저 오류 문구를 변수로 받아 둔다.
+      v_err := SUBSTR(SQLERRM, 1, 400);
       ROLLBACK;
       UPDATE SEC_REKEY_JOB
-         SET status = 'ERROR', last_error = SUBSTR(SQLERRM, 1, 400),
+         SET status = 'ERROR', last_error = v_err,
              updated_at = SYSTIMESTAMP
        WHERE job_name = p_job_name;
       COMMIT;

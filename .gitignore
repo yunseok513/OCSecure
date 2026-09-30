@@ -34,3 +34,7 @@ build/
 
 # 반입 꾸러미
 dist/
+
+# CP949 사본 (tools/to_cp949.py 가 만든다)
+sql_cp949/
+docs_cp949/
