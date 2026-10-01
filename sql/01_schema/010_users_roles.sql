@@ -21,7 +21,8 @@ GRANT CREATE SESSION, CREATE TABLE, CREATE PROCEDURE, CREATE SEQUENCE,
 -- 있고, SQL*Plus 는 오류가 나도 다음 문장으로 넘어가므로 화면을 지나쳐 버리기
 -- 쉽다. 이 파일 끝의 점검 조회로 세 건이 모두 들어갔는지 반드시 확인할 것.
 GRANT EXECUTE ON SYS.DBMS_CRYPTO TO OCS_OWNER;
-GRANT EXECUTE ON SYS.DBMS_LOCK   TO OCS_OWNER;  -- 복호화 실패 시 지연에 사용
+-- 복호화 실패 시 지연에 사용한다.
+GRANT EXECUTE ON SYS.DBMS_LOCK   TO OCS_OWNER;
 -- 소유자 권한 패키지 안에서는 역할이 비활성이므로, 역할 소속을 사전에서 직접 읽는다.
 -- 뷰 V_SEC_SESSION_ROLES 가 이것을 쓰므로, 없으면 030_views.sql 이 실패한다.
 GRANT SELECT  ON SYS.DBA_ROLE_PRIVS TO OCS_OWNER;
@@ -48,9 +49,16 @@ GRANT CREATE TABLE, CREATE VIEW, CREATE TRIGGER TO OCS_APP;
 
 -- 역할 -----------------------------------------------------------------------
 -- 권한을 계정에 직접 주지 않고 역할을 거치게 하여, 권한 현황 점검을 쉽게 한다.
-CREATE ROLE OCS_ROLE_APP;      -- 암호화/색인 생성 + 정책이 허용하는 범위의 복호화
-CREATE ROLE OCS_ROLE_KEYADM;   -- 키 생성/활성/폐기
-CREATE ROLE OCS_ROLE_AUDITOR;  -- 감사 로그 조회
+-- OCS_ROLE_APP 은 암호화와 색인 생성, 그리고 정책이 허용하는 범위의 복호화를 맡는다.
+-- OCS_ROLE_KEYADM 은 키 생성과 활성과 폐기를 맡는다.
+-- OCS_ROLE_AUDITOR 는 감사 로그 조회만 한다.
+--
+-- 아래 세 줄에 주석을 같은 줄로 붙이지 말 것. SQL*Plus 는 최상위 구문을 세미콜론에서
+-- 끊으므로, 뒤에 붙인 주석이 구문에 섞여 들어가 구문 전체가 실패한다. 실패해도
+-- 다음 줄로 넘어가므로 긴 출력 속에서 놓치기 쉽다.
+CREATE ROLE OCS_ROLE_APP;
+CREATE ROLE OCS_ROLE_KEYADM;
+CREATE ROLE OCS_ROLE_AUDITOR;
 
 GRANT OCS_ROLE_APP     TO OCS_APP;
 GRANT OCS_ROLE_KEYADM  TO OCS_KEYADM;

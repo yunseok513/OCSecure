@@ -13,6 +13,7 @@
   5. 패키지 간 호출(PKG_X.foo)이 실제로 명세에 있는 이름을 가리키는가
   6. SQLERRM / SQLCODE 를 SQL 문 안에서 직접 쓰고 있지는 않은가
   7. SQL 문 안에서 지역 서브프로그램을 부르고 있지는 않은가
+  8. 최상위 구문의 세미콜론 뒤에 주석을 같은 줄로 붙이지 않았는가
 """
 
 import glob
@@ -40,6 +41,13 @@ RE_CALL = re.compile(r'\b(PKG_[A-Z0-9_]+)\.([A-Z0-9_]+)', re.IGNORECASE)
 # 시작해 세미콜론까지 훑되, 블록 키워드를 만나면 거기서 끊는다.
 RE_DML = re.compile(r'\b(INSERT|UPDATE|DELETE|MERGE|SELECT)\b[^;]*', re.IGNORECASE)
 RE_DML_STOP = re.compile(r'\b(LOOP|THEN|BEGIN|ELSE|ELSIF|END)\b', re.IGNORECASE)
+# SQL*Plus 는 최상위 구문을 세미콜론에서 끊는다. 그 뒤에 주석을 같은 줄로 붙이면
+# 주석이 구문에 섞여 들어가 구문 전체가 실패한다. 실패해도 다음 줄로 넘어가므로
+# 긴 출력 속에서 놓치기 쉽다. PL/SQL 블록 안에서는 안전하므로 들여쓰기가 없는
+# 줄, 곧 최상위에서 시작하는 구문만 본다.
+RE_TRAIL_COMMENT = re.compile(
+    r'^(GRANT|REVOKE|CREATE|ALTER|DROP|COMMENT|INSERT|UPDATE|DELETE|SET|TRUNCATE)\b'
+    r'[^;]*;[ \t]*--', re.IGNORECASE)
 RE_ERRFN = re.compile(r'\b(SQLERRM|SQLCODE)\b', re.IGNORECASE)
 
 
@@ -163,6 +171,17 @@ def check_local_in_sql(path, public):
     return errs
 
 
+def check_trailing_comment(path):
+    """최상위 구문의 세미콜론 뒤에 붙인 주석을 찾는다."""
+    errs = []
+    with open(path, encoding='utf-8') as fh:
+        for no, line in enumerate(fh, 1):
+            if RE_TRAIL_COMMENT.match(line):
+                errs.append('%s:%d: 최상위 구문의 세미콜론 뒤에 주석을 같은 줄로 '
+                            '붙였다. 구문 위로 옮길 것' % (os.path.basename(path), no))
+    return errs
+
+
 def check_file(path):
     errs = []
     raw = open(path, encoding='utf-8').read()
@@ -201,6 +220,9 @@ def check_file(path):
 
 def main():
     pkg_files = sorted(glob.glob(os.path.join(ROOT, 'sql', '02_packages', '*.sql')))
+    # 최상위 구문 점검은 설치 스크립트 전체를 본다. 여기서 깨지면 설치가 조용히
+    # 반쪽만 되고, 그 사실이 한참 뒤에야 드러난다.
+    all_sql = sorted(glob.glob(os.path.join(ROOT, 'sql', '**', '*.sql'), recursive=True))
     # 호출 점검은 예시와 시험 스크립트까지 넓혀서 본다.
     call_files = pkg_files + sorted(
         glob.glob(os.path.join(ROOT, 'sql', '04_admin', '*.sql'))
@@ -217,9 +239,12 @@ def main():
         all_errs.extend(check_sql_errfn(f))
         all_errs.extend(check_local_in_sql(f, public))
 
+    for f in all_sql:
+        all_errs.extend(check_trailing_comment(f))
+
     for e in all_errs:
         print('  [오류] ' + e)
-    print('점검 파일 %d개, 오류 %d건' % (len(call_files), len(all_errs)))
+    print('점검 파일 %d개, 오류 %d건' % (len(set(call_files) | set(all_sql)), len(all_errs)))
     return 1 if all_errs else 0
 
 
