@@ -75,6 +75,16 @@ CREATE OR REPLACE PACKAGE PKG_SECURE_API AS
   -- 2 = 옛 형식. 이행 기간에만 나타난다.
   -- 9 = 알 수 없는 형식. 통과시키지 않는다. 자료 이상이므로 조사가 필요하다.
   FUNCTION pwd_state(p_stored IN VARCHAR2) RETURN NUMBER;
+
+  -- 운용 상태 ---------------------------------------------------------------
+  -- 암복호화를 할 수 있는 상태인지 미리 물어본다. 1 이면 가능, 0 이면 불가다.
+  --
+  -- 키 저장소가 닫혀 있으면 모든 호출이 예외를 낸다. 그것이 안전한 동작이지만,
+  -- 이용자에게 오류 추적이 그대로 보이는 것보다는 안내 화면을 내보내는 편이 낫다.
+  -- 화면 진입 전에 이 값을 보고 갈라서 처리하라. 감시 도구의 상태 점검에도 쓴다.
+  --
+  -- 키 값이나 그 밖의 비밀은 드러나지 않는다. 열려 있는지 여부만 돌려준다.
+  FUNCTION ready RETURN NUMBER;
 END PKG_SECURE_API;
 /
 
@@ -204,6 +214,15 @@ CREATE OR REPLACE PACKAGE BODY PKG_SECURE_API AS
     -- 어느 쪽도 아니면 조사에서 놓친 형식이다. 통과시키지 않는다.
     RETURN 0;
   END check_pwd;
+
+  FUNCTION ready RETURN NUMBER IS
+  BEGIN
+    RETURN CASE WHEN PKG_KEK_PROVIDER.is_open THEN 1 ELSE 0 END;
+  EXCEPTION
+    WHEN OTHERS THEN
+      -- 상태를 묻는 호출이 예외로 끝나면 안내를 낼 수 없다. 모르면 불가로 본다.
+      RETURN 0;
+  END ready;
 
   FUNCTION pwd_state(p_stored IN VARCHAR2) RETURN NUMBER IS
     c_hex_len CONSTANT PLS_INTEGER := PKG_CRYPTO_CORE.c_pwd_blob_len * 2;   -- 108

@@ -393,6 +393,9 @@ BEGIN
       PKG_CRYPTO_POLICY.mask_value('ACCOUNT', '110123456789') = '********6789',
       PKG_CRYPTO_POLICY.mask_value('ACCOUNT', '110123456789'));
 
+  ------------------------------------------------- 15의2. 운용 상태
+  chk('마스터 키가 열려 있으면 ready 가 1 이다', PKG_SECURE_API.ready = 1);
+
   ------------------------------------------------- 16. 널 처리
   chk('널을 암호화하면 널이 나온다',  PKG_CRYPTO_CORE.encrypt_str(NULL, 'KAT_NONE') IS NULL);
   chk('널을 복호화하면 널이 나온다',  PKG_CRYPTO_CORE.decrypt_str(NULL) IS NULL);
