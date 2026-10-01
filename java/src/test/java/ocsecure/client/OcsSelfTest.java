@@ -24,6 +24,15 @@ import java.util.Properties;
  */
 public final class OcsSelfTest {
 
+    /** 자바 8 을 대상으로 하므로 String.repeat(자바 11) 를 쓰지 않는다. */
+    private static String times(String unit, int n) {
+        StringBuilder sb = new StringBuilder(unit.length() * n);
+        for (int i = 0; i < n; i++) {
+            sb.append(unit);
+        }
+        return sb.toString();
+    }
+
     private static int pass;
     private static int fail;
 
@@ -152,7 +161,7 @@ public final class OcsSelfTest {
                 !OcsLegacyPassword.isLegacy(
                         OcsCrypto.toHex(OcsCrypto.passwordHash("x", salt, 100))));
         chk("가정이 틀리면 확인이 실패한다",
-                OcsLegacyPassword.selfCheck("Passw0rd!", "A".repeat(43) + "=") == null);
+                OcsLegacyPassword.selfCheck("Passw0rd!", times("A", 43) + "=") == null);
 
         chk("반복 횟수 상향 판정",
                 OcsCrypto.passwordNeedsUpgrade(OcsCrypto.passwordHash("x", salt, 1000), 10000));
