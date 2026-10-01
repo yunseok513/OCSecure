@@ -8,6 +8,11 @@
 --
 -- 시험을 위해 설정을 개발 모드로 잠시 바꾼다. 끝나면 원래대로 되돌린다.
 -- 운영계에서는 실행하지 말 것.
+--
+-- 한 가지 더 유의한다. 이 시험은 시험용 마스터 키를 주입했다가 끝에 키 저장소를
+-- 닫는다. 그러므로 돌리고 나면 운영 마스터 키가 사라진 상태가 되고 암복호화가
+-- 멈춘다. 키 저장소 유지 프로그램이 돌고 있으면 다음 확인 주기에 저절로
+-- 복구되지만, 그렇지 않으면 사람이 다시 주입해야 한다.
 
 SET SERVEROUTPUT ON SIZE UNLIMITED
 SET FEEDBACK OFF
@@ -422,6 +427,11 @@ BEGIN
   DBMS_OUTPUT.PUT_LINE('=== 통과 ' || v_pass || ' / 실패 ' || v_fail || ' ===');
   DBMS_OUTPUT.PUT_LINE('설정을 원래대로 되돌렸다: KEK_SOURCE=' || v_kek_src
                        || ', APPCTX_MODE=' || v_ctx_mode);
+  DBMS_OUTPUT.PUT_LINE('');
+  DBMS_OUTPUT.PUT_LINE('*** 키 저장소를 닫았다. 운영 마스터 키를 다시 주입해야 한다. ***');
+  DBMS_OUTPUT.PUT_LINE('    이 시험은 시험용 키를 주입했다가 닫으므로, 돌리고 나면');
+  DBMS_OUTPUT.PUT_LINE('    암복호화가 멈춘다. 키 저장소 유지 프로그램이 돌고 있으면');
+  DBMS_OUTPUT.PUT_LINE('    다음 확인 주기에 저절로 복구된다. 아니라면 사람이 넣어야 한다.');
 
   IF v_fail > 0 THEN
     RAISE_APPLICATION_ERROR(-20998, '자체 시험 실패 ' || v_fail || '건. 배포하지 말 것.');
