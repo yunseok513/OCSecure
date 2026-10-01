@@ -18,7 +18,16 @@ import java.sql.Types;
  *
  * <p>{@code --data} 를 덧붙이면 투명화 뷰에 실제로 자료를 넣고 꺼내 본다. 08_sample 을
  * 적용한 뒤에 쓴다. 자료를 넣고 꺼내는 일은 조회 도구가 아니라 애플리케이션이 하는
- * 것이므로, 이 확인도 여기서 한다.
+ * 것이므로, 이 확인도 여기서 한다. 확인이 끝나면 넣었던 자료를 지운다.
+ *
+ * <p>{@code --keep} 은 {@code --data} 와 같되 시험 자료를 지우지 않고 남긴다. 키 교체
+ * 리허설에 옮길 자료가 있어야 하므로 그때 쓴다. 리허설이 끝나면 직접 지워야 한다.
+ *
+ * <p>{@code --read} 는 남아 있는 시험 자료를 읽기만 한다. 넣지도 지우지도 않으므로,
+ * 키를 교체한 직후와 옛 키를 폐기한 직후에 옛 자료가 그대로 읽히는지 보는 데 쓴다.
+ *
+ * <p>복호화 자격이 있는지는 먼저 물어보고 그에 맞추어 판정하므로, 자격을 주기 전과
+ * 준 뒤에 같은 프로그램을 그대로 다시 돌릴 수 있다. 통과 건수는 어느 쪽이든 같다.
  *
  * <p>실행
  * <pre>
@@ -48,10 +57,17 @@ public final class OcsConnectDemo {
         String pwd = args[2];
         byte[] appCtxKey = OcsCrypto.fromHex(args[3]);
         boolean dataMode = false;
+        boolean keepData = false;
+        boolean readOnly = false;
         String appUser = "DEMO_USER";
         for (int i = 4; i < args.length; i++) {
             if ("--data".equals(args[i])) {
                 dataMode = true;
+            } else if ("--keep".equals(args[i])) {
+                dataMode = true;
+                keepData = true;
+            } else if ("--read".equals(args[i])) {
+                readOnly = true;
             } else {
                 appUser = args[i];
             }
@@ -105,20 +121,31 @@ public final class OcsConnectDemo {
                 System.out.println("  [" + (ok ? "통과" : "실패")
                         + "] 구분자가 있든 없든 색인 값이 같다");
 
-                // 6. 복호화는 권한이 따로 있어야 한다. 응용 계정에는 주지 않았으므로
-                //    거부되는 것이 정상이다. 열려 있다면 권한 설정을 확인해야 한다.
+                // 6. 복호화는 권한이 따로 있어야 한다. 자격이 없으면 거부되어야 하고,
+                //    자격을 준 뒤라면 평문이 나와야 한다. 어느 쪽이 맞는지는 먼저
+                //    물어보고 그에 맞추어 판정한다. 그래야 자격을 주기 전과 준 뒤에
+                //    같은 프로그램으로 양쪽을 다 확인할 수 있다.
+                boolean canReveal = "Y".equals(allowed(con, "RRN"));
                 try {
-                    decRrn(con, c1);
-                    fail++;
-                    System.out.println("  [실패] 복호화 권한이 없는데 복호화가 되었다.");
-                } catch (SQLException e) {
-                    ok = e.getErrorCode() == 20520;
+                    String back = decRrn(con, c1);
+                    ok = canReveal && RRN.equals(back);
                     if (ok) { pass++; } else { fail++; }
                     System.out.println("  [" + (ok ? "통과" : "실패")
-                            + "] 복호화 권한이 없으면 거부된다 (ORA-" + e.getErrorCode() + ")");
+                            + "] 복호화 자격이 " + (canReveal ? "있으므로 평문이 나온다"
+                                                           : "없는데 복호화가 되었다"));
+                } catch (SQLException e) {
+                    ok = !canReveal && e.getErrorCode() == 20520;
+                    if (ok) { pass++; } else { fail++; }
+                    System.out.println("  [" + (ok ? "통과" : "실패")
+                            + "] 복호화 자격이 없으면 거부된다 (ORA-" + e.getErrorCode() + ")");
                 }
                 if (dataMode) {
-                    int[] r = dataChecks(con);
+                    int[] r = dataChecks(con, keepData);
+                    pass += r[0];
+                    fail += r[1];
+                }
+                if (readOnly) {
+                    int[] r = readChecks(con);
                     pass += r[0];
                     fail += r[1];
                 }
@@ -142,7 +169,7 @@ public final class OcsConnectDemo {
      * 맞는지는 먼저 물어보고 그에 맞추어 판정한다. 권한을 준 뒤에 다시 돌리면
      * 같은 프로그램으로 양쪽을 다 확인할 수 있다.
      */
-    private static int[] dataChecks(Connection con) {
+    private static int[] dataChecks(Connection con, boolean keepData) {
         int pass = 0;
         int fail = 0;
         System.out.println("  --- 투명화 뷰 확인 ---");
@@ -184,13 +211,48 @@ public final class OcsConnectDemo {
             System.out.println("  [" + (ok ? "통과" : "실패")
                     + "] 색인으로 찾으면 구분자와 무관하게 같은 행이 나온다");
 
-            exec(con, "DELETE FROM TB_MEMBER WHERE mbr_id IN (9001, 9002)");
-            System.out.println("  시험 자료를 지웠다.");
+            if (keepData) {
+                System.out.println("  시험 자료(9001, 9002)를 남겨 두었다."
+                        + " 키 교체 리허설이 끝나면 지워야 한다.");
+            } else {
+                exec(con, "DELETE FROM TB_MEMBER WHERE mbr_id IN (9001, 9002)");
+                System.out.println("  시험 자료를 지웠다.");
+            }
         } catch (SQLException e) {
             fail++;
             System.out.println("  [실패] 투명화 뷰 확인 중 오류: " + e.getMessage());
         }
         return new int[] { pass, fail };
+    }
+
+    /**
+     * 남아 있는 시험 자료를 읽기만 한다. 넣지도 지우지도 않는다.
+     *
+     * <p>키를 교체한 직후와 옛 키를 폐기한 직후에, 옛 키로 저장된 자료가 그대로
+     * 읽히는지 확인하는 데 쓴다. 조회 도구에서는 응용 문맥을 세울 수 없으므로
+     * 이 확인도 여기서 한다.
+     */
+    private static int[] readChecks(Connection con) {
+        System.out.println("  --- 남은 자료 읽기 확인 ---");
+        try {
+            boolean canReveal = "Y".equals(allowed(con, "RRN"));
+            String a = one(con, "SELECT mbr_rrn FROM TB_MEMBER WHERE mbr_id = 9001");
+            String b = one(con, "SELECT mbr_rrn FROM TB_MEMBER WHERE mbr_id = 9002");
+            if (a == null || b == null) {
+                System.out.println("  [실패] 시험 자료(9001, 9002)가 없다."
+                        + " --keep 으로 남겨 두었는지 확인할 것.");
+                return new int[] { 0, 1 };
+            }
+            boolean ok = canReveal
+                    ? ("800101-1234567".equals(a) && "751225-1234567".equals(b))
+                    : (a.indexOf('*') >= 0 && b.indexOf('*') >= 0);
+            System.out.println("  [" + (ok ? "통과" : "실패") + "] 두 건이 그대로 읽힌다"
+                    + "  (" + a + ", " + b + ")");
+            return new int[] { ok ? 1 : 0, ok ? 0 : 1 };
+        } catch (SQLException e) {
+            System.out.println("  [실패] 남은 자료 읽기 중 오류: " + e.getMessage());
+            return new int[] { 0, 1 };
+        }
     }
 
     private static String allowed(Connection con, String domain) throws SQLException {
