@@ -16,11 +16,16 @@ import java.sql.Types;
  * 암호화가 되는가, 검색용 색인이 같은 평문에 대해 같은 값을 내는가, 복호화 권한이
  * 없으면 암호화는 되어도 복호화는 거부되는가.
  *
+ * <p>{@code --data} 를 덧붙이면 투명화 뷰에 실제로 자료를 넣고 꺼내 본다. 08_sample 을
+ * 적용한 뒤에 쓴다. 자료를 넣고 꺼내는 일은 조회 도구가 아니라 애플리케이션이 하는
+ * 것이므로, 이 확인도 여기서 한다.
+ *
  * <p>실행
  * <pre>
  *   javac -cp ojdbc8.jar -d out $(find java/src -name '*.java')
  *   java  -cp out:ojdbc8.jar ocsecure.client.OcsConnectDemo \
  *         "jdbc:oracle:thin:@호스트:포트/SFISPDB949" OCS_APP 암호 &lt;증표키 16진 64자&gt;
+ *   java  -cp out:ojdbc8.jar ocsecure.client.OcsConnectDemo ... &lt;증표키&gt; --data
  * </pre>
  *
  * <p>윈도우에서는 클래스패스 구분자가 쌍점이 아니라 쌍반점이다.
@@ -42,7 +47,15 @@ public final class OcsConnectDemo {
         String user = args[1];
         String pwd = args[2];
         byte[] appCtxKey = OcsCrypto.fromHex(args[3]);
-        String appUser = args.length > 4 ? args[4] : "DEMO_USER";
+        boolean dataMode = false;
+        String appUser = "DEMO_USER";
+        for (int i = 4; i < args.length; i++) {
+            if ("--data".equals(args[i])) {
+                dataMode = true;
+            } else {
+                appUser = args[i];
+            }
+        }
 
         int pass = 0;
         int fail = 0;
@@ -104,6 +117,11 @@ public final class OcsConnectDemo {
                     System.out.println("  [" + (ok ? "통과" : "실패")
                             + "] 복호화 권한이 없으면 거부된다 (ORA-" + e.getErrorCode() + ")");
                 }
+                if (dataMode) {
+                    int[] r = dataChecks(con);
+                    pass += r[0];
+                    fail += r[1];
+                }
             } finally {
                 if (!session.release(con)) {
                     System.out.println("  [경고] 문맥을 거두지 못하였다.");
@@ -114,6 +132,87 @@ public final class OcsConnectDemo {
         System.out.println("=== 통과 " + pass + " / 실패 " + fail + " ===");
         if (fail > 0) {
             System.exit(1);
+        }
+    }
+
+    /**
+     * 투명화 뷰에 자료를 넣고 꺼내 본다. 08_sample 을 적용한 뒤에만 쓸 수 있다.
+     *
+     * <p>복호화 권한이 있으면 평문이, 없으면 마스킹된 값이 나와야 한다. 어느 쪽이
+     * 맞는지는 먼저 물어보고 그에 맞추어 판정한다. 권한을 준 뒤에 다시 돌리면
+     * 같은 프로그램으로 양쪽을 다 확인할 수 있다.
+     */
+    private static int[] dataChecks(Connection con) {
+        int pass = 0;
+        int fail = 0;
+        System.out.println("  --- 투명화 뷰 확인 ---");
+        try {
+            boolean canReveal = "Y".equals(allowed(con, "RRN"));
+            System.out.println("  이 세션의 주민등록번호 복호화 자격: "
+                    + (canReveal ? "있음" : "없음"));
+
+            exec(con, "DELETE FROM TB_MEMBER WHERE mbr_id IN (9001, 9002)");
+            exec(con, "INSERT INTO TB_MEMBER (mbr_id, mbr_name, mbr_rrn, mbr_phone)"
+                    + " VALUES (9001, '홍길동', '800101-1234567', '010-1234-5678')");
+            exec(con, "INSERT INTO TB_MEMBER (mbr_id, mbr_name, mbr_rrn, mbr_phone)"
+                    + " VALUES (9002, '김철수', '751225-1234567', '010-9876-5432')");
+            // JDBC 는 기본이 자동 확정이므로 따로 확정하지 않는다.
+            System.out.println("  [통과] 평문을 넣으면 트리거가 암호화하여 저장한다");
+            pass++;
+
+            String rrn = one(con, "SELECT mbr_rrn FROM TB_MEMBER WHERE mbr_id = 9001");
+            boolean plain = "800101-1234567".equals(rrn);
+            boolean masked = rrn != null && rrn.indexOf('*') >= 0;
+            boolean ok = canReveal ? plain : masked;
+            if (ok) { pass++; } else { fail++; }
+            System.out.println("  [" + (ok ? "통과" : "실패") + "] 자격에 따라 "
+                    + (canReveal ? "평문이" : "마스킹된 값이") + " 나온다  (" + rrn + ")");
+
+            // 마스킹 전용 컬럼은 자격과 무관하게 언제나 가려져 있어야 한다.
+            String m = one(con, "SELECT mbr_rrn_masked FROM TB_MEMBER WHERE mbr_id = 9001");
+            ok = m != null && m.indexOf('*') >= 0;
+            if (ok) { pass++; } else { fail++; }
+            System.out.println("  [" + (ok ? "통과" : "실패")
+                    + "] 마스킹 전용 컬럼은 자격이 있어도 가려진다  (" + m + ")");
+
+            String a = one(con, "SELECT mbr_id FROM TB_MEMBER WHERE mbr_rrn_idx ="
+                    + " OCS_OWNER.PKG_SECURE_API.idx_rrn('800101-1234567')");
+            String b = one(con, "SELECT mbr_id FROM TB_MEMBER WHERE mbr_rrn_idx ="
+                    + " OCS_OWNER.PKG_SECURE_API.idx_rrn('8001011234567')");
+            ok = "9001".equals(a) && "9001".equals(b);
+            if (ok) { pass++; } else { fail++; }
+            System.out.println("  [" + (ok ? "통과" : "실패")
+                    + "] 색인으로 찾으면 구분자와 무관하게 같은 행이 나온다");
+
+            exec(con, "DELETE FROM TB_MEMBER WHERE mbr_id IN (9001, 9002)");
+            System.out.println("  시험 자료를 지웠다.");
+        } catch (SQLException e) {
+            fail++;
+            System.out.println("  [실패] 투명화 뷰 확인 중 오류: " + e.getMessage());
+        }
+        return new int[] { pass, fail };
+    }
+
+    private static String allowed(Connection con, String domain) throws SQLException {
+        try (CallableStatement cs = con.prepareCall(
+                "{ ? = call OCS_OWNER.PKG_SECURE_API.allowed(?) }")) {
+            cs.registerOutParameter(1, Types.VARCHAR);
+            cs.setString(2, domain);
+            cs.execute();
+            return cs.getString(1);
+        }
+    }
+
+    private static void exec(Connection con, String sql) throws SQLException {
+        try (java.sql.Statement st = con.createStatement()) {
+            st.executeUpdate(sql);
+        }
+    }
+
+    private static String one(Connection con, String sql) throws SQLException {
+        try (java.sql.Statement st = con.createStatement();
+             java.sql.ResultSet rs = st.executeQuery(sql)) {
+            return rs.next() ? rs.getString(1) : null;
         }
     }
 
