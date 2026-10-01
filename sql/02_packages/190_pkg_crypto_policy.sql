@@ -123,21 +123,48 @@ CREATE OR REPLACE PACKAGE BODY PKG_CRYPTO_POLICY AS
     RETURN CASE WHEN PKG_AUTHZ.can_reveal(p_domain_code) THEN 'Y' ELSE 'N' END;
   END can_reveal;
 
-  FUNCTION protect(p_domain_code IN VARCHAR2, p_plain IN VARCHAR2) RETURN RAW IS
+  -- 암호화와 색인 생성에도 애플리케이션 문맥을 요구한다.
+  --
+  -- 처음에는 "암호화는 정보를 내보내지 않는다"는 이유로 검사를 두지 않았으나
+  -- 그 판단이 틀렸다. 색인은 결정적이어서 같은 평문이면 항상 같은 값이 나오므로,
+  -- 응용 계정 접속 정보를 가진 사람이 후보 평문을 넣어 색인을 계산하고 저장된
+  -- 색인과 맞춰 보면 평문을 알아낼 수 있다. 주민등록번호는 생년월일을 알면
+  -- 후보가 백만 개 수준이라 현실적인 공격이다. 복호화를 막아 놓고 이 경로를
+  -- 열어 두면 통제가 성립하지 않는다.
+  --
+  -- 암호화 쪽도 같이 막는다. 정당한 응용은 언제나 문맥을 세우고 들어오므로 잃는
+  -- 것이 없고, 위조 암호문을 만들어 넣는 길을 하나 줄인다.
+  PROCEDURE require_ctx(p_domain_code IN VARCHAR2,
+                        p_dom         IN t_domain,
+                        p_what        IN VARCHAR2) IS
   BEGIN
-    -- 암호화는 정보를 내보내지 않으므로 복호화와 같은 수준의 통제를 두지 않는다.
-    -- 다만 도메인이 정의되어 있어야 하며, 없는 도메인으로는 저장할 수 없다.
+    IF p_dom.require_app_ctx = 'Y' AND NOT PKG_APP_CONTEXT.is_established THEN
+      PKG_AUDIT.log(p_what || '_DENIED', 'ALERT', p_domain_code, '애플리케이션 문맥 없음');
+      slow_down;
+      PKG_SEC_ERR.raise_err(PKG_SEC_ERR.e_no_app_ctx);
+    END IF;
+  END require_ctx;
+
+  FUNCTION protect(p_domain_code IN VARCHAR2, p_plain IN VARCHAR2) RETURN RAW IS
+    v_dom t_domain;
+  BEGIN
     IF p_plain IS NULL THEN
       RETURN NULL;
     END IF;
+    -- 도메인이 정의되어 있어야 한다. 없는 도메인으로는 저장할 수 없다.
+    v_dom := domain_of(p_domain_code);
+    require_ctx(p_domain_code, v_dom, 'PROTECT');
     RETURN PKG_CRYPTO_CORE.encrypt_str(p_plain, p_domain_code);
   END protect;
 
   FUNCTION index_of(p_domain_code IN VARCHAR2, p_plain IN VARCHAR2) RETURN RAW IS
+    v_dom t_domain;
   BEGIN
     IF p_plain IS NULL THEN
       RETURN NULL;
     END IF;
+    v_dom := domain_of(p_domain_code);
+    require_ctx(p_domain_code, v_dom, 'INDEX');
     RETURN PKG_CRYPTO_CORE.blind_index(p_plain, p_domain_code);
   END index_of;
 

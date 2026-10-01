@@ -299,8 +299,29 @@ BEGIN
   chk('도메인당 활성 키는 하나뿐이다', v_n = 1, '활성 키 ' || v_n || '개');
 
   ------------------------------------------------- 10. 문맥 없는 복호화 거부
+  -- 암호화에도 문맥이 필요하므로 먼저 세운다.
+  PKG_SECURE_API.login('시험사용자');
   v_c := PKG_CRYPTO_POLICY.protect('KAT_SEC', '통제 시험 값');
   PKG_APP_CONTEXT.clear_identity;
+
+  BEGIN
+    v_c2 := PKG_CRYPTO_POLICY.protect('KAT_SEC', '통제 시험 값');
+    chk('애플리케이션 문맥이 없으면 암호화도 거부된다', FALSE, '예외가 발생하지 않았다');
+  EXCEPTION
+    WHEN OTHERS THEN
+      chk('애플리케이션 문맥이 없으면 암호화도 거부된다',
+          SQLCODE = PKG_SEC_ERR.e_no_app_ctx, 'SQLCODE=' || SQLCODE);
+  END;
+
+  BEGIN
+    v_bad := PKG_CRYPTO_POLICY.index_of('KAT_SEC', '통제 시험 값');
+    chk('애플리케이션 문맥이 없으면 색인 생성도 거부된다', FALSE, '예외가 발생하지 않았다');
+  EXCEPTION
+    WHEN OTHERS THEN
+      chk('애플리케이션 문맥이 없으면 색인 생성도 거부된다',
+          SQLCODE = PKG_SEC_ERR.e_no_app_ctx, 'SQLCODE=' || SQLCODE);
+  END;
+
   BEGIN
     v_s := PKG_CRYPTO_POLICY.reveal('KAT_SEC', v_c);
     chk('애플리케이션 문맥이 없으면 복호화가 거부된다', FALSE, '예외가 발생하지 않았다');
