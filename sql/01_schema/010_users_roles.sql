@@ -41,6 +41,10 @@ GRANT CREATE SESSION TO OCS_AUDITOR;
 CREATE USER OCS_APP IDENTIFIED BY "&app_user_pwd"
   DEFAULT TABLESPACE USERS QUOTA UNLIMITED ON USERS;
 GRANT CREATE SESSION TO OCS_APP;
+-- 투명화 뷰와 그 트리거를 응용 스키마에 만들려면 아래가 필요하다. 실제 사업에서는
+-- 업무 스키마가 이미 있고 이 권한도 이미 있을 것이므로, 그때는 이 줄이 필요 없다.
+-- 여기서는 08_sample 을 돌려 볼 수 있도록 둔다.
+GRANT CREATE TABLE, CREATE VIEW, CREATE TRIGGER TO OCS_APP;
 
 -- 역할 -----------------------------------------------------------------------
 -- 권한을 계정에 직접 주지 않고 역할을 거치게 하여, 권한 현황 점검을 쉽게 한다.
