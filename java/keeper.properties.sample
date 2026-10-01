@@ -1,0 +1,19 @@
+# 키 저장소 유지 프로그램 설정 예시
+#
+# 이 파일에는 마스터 키와 계정 암호가 들어간다. 운영체제 권한으로 보호해야 한다.
+#   리눅스  : chown <서비스계정> keeper.properties && chmod 600 keeper.properties
+#   윈도우  : 해당 서비스 계정만 읽도록 접근 제어를 건다
+#
+# 실제 운영에서는 파일 이름을 keeper.properties 로 바꾸고 값을 채운다.
+# 이 예시 파일 자체는 형상 관리에 두되, 값이 채워진 파일은 두지 않는다.
+
+jdbc.url=jdbc:oracle:thin:@호스트:1521/SFISPDB949
+jdbc.user=OCS_KEYADM
+jdbc.password=
+
+# 단계 9의1 에서 기록해 둔 마스터 키. 16진 64자.
+master.key=
+
+# 저장소가 열려 있는지 확인하는 주기(초). 데이터베이스를 재기동하면 이 주기만큼
+# 암복호화가 멈출 수 있으므로, 짧게 둘수록 공백이 줄어든다. 최소 5.
+check.seconds=30
