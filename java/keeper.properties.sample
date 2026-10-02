@@ -11,7 +11,7 @@ jdbc.url=jdbc:oracle:thin:@호스트:1521/SFISPDB949
 jdbc.user=OCS_KEYADM
 jdbc.password=
 
-# 단계 9의1 에서 기록해 둔 마스터 키. 16진 64자.
+# 설치 매뉴얼(docs/80) 제8장에서 기록해 둔 마스터 키. 16진 64자.
 master.key=
 
 # 저장소가 열려 있는지 확인하는 주기(초). 데이터베이스를 재기동하면 이 주기만큼

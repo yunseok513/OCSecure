@@ -38,3 +38,6 @@ dist/
 # CP949 사본 (tools/to_cp949.py 가 만든다)
 sql_cp949/
 docs_cp949/
+
+# 값이 채워진 키 저장소 유지 프로그램 설정 (예시 파일만 형상 관리에 둔다)
+keeper.properties
