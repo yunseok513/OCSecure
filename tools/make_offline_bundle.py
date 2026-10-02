@@ -36,7 +36,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # 꾸러미에 담을 것. 디렉터리는 통째로 옮긴다.
 COPY_DIRS = ['sql', 'docs', 'tests', 'tools', os.path.join('java', 'src')]
 COPY_FILES = ['README.md', 'requirements.txt', os.path.join('java', 'pom.xml'),
-              os.path.join('java', 'keeper.properties.sample')]
+              os.path.join('java', 'keeper.properties.sample'),
+              os.path.join('java', 'keeper.bat')]
 SKIP_DIRS = {'__pycache__', '.git', 'target', 'build'}
 
 
