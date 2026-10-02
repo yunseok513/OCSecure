@@ -14,6 +14,7 @@
   6. SQLERRM / SQLCODE 를 SQL 문 안에서 직접 쓰고 있지는 않은가
   7. SQL 문 안에서 지역 서브프로그램을 부르고 있지는 않은가
   8. 최상위 구문의 세미콜론 뒤에 주석을 같은 줄로 붙이지 않았는가
+  9. 트리거의 조건 술어(UPDATING('컬럼') 등)를 SQL 문 안에서 쓰지 않았는가
 """
 
 import glob
@@ -49,6 +50,9 @@ RE_TRAIL_COMMENT = re.compile(
     r'^(GRANT|REVOKE|CREATE|ALTER|DROP|COMMENT|INSERT|UPDATE|DELETE|SET|TRUNCATE)\b'
     r'[^;]*;[ \t]*--', re.IGNORECASE)
 RE_ERRFN = re.compile(r'\b(SQLERRM|SQLCODE)\b', re.IGNORECASE)
+# INSERTING / UPDATING / DELETING 은 PL/SQL 조건식에서만 쓸 수 있다. UPDATE 구문
+# 안의 CASE 에 넣으면 PLS-00231 로 트리거가 컴파일되지 않는다.
+RE_COND_PRED = re.compile(r'\b(INSERTING|UPDATING|DELETING)\s*\(', re.IGNORECASE)
 
 
 def strip_comments(text):
@@ -134,6 +138,19 @@ def check_sql_errfn(path):
         if m:
             errs.append('%s: %s 를 SQL 문(%s) 안에서 직접 쓰고 있다. '
                         'PL/SQL 변수로 먼저 받아서 넘겨야 한다'
+                        % (os.path.basename(path), m.group(1).upper(), kind))
+    return errs
+
+
+def check_cond_pred_in_sql(path):
+    """트리거 조건 술어를 SQL 문 안에서 쓰는지 본다."""
+    errs = []
+    text = strip_strings(strip_comments(open(path, encoding='utf-8').read()))
+    for kind, stmt in dml_statements(text):
+        m = RE_COND_PRED.search(stmt)
+        if m:
+            errs.append('%s: %s 는 PL/SQL 조건식에서만 쓸 수 있는데 SQL 문(%s) 안에 '
+                        '있다. IF 로 가르고 UPDATE 를 따로 둘 것'
                         % (os.path.basename(path), m.group(1).upper(), kind))
     return errs
 
@@ -238,6 +255,7 @@ def main():
         all_errs.extend(check_calls(f, public))
         all_errs.extend(check_sql_errfn(f))
         all_errs.extend(check_local_in_sql(f, public))
+        all_errs.extend(check_cond_pred_in_sql(f))
 
     for f in all_sql:
         all_errs.extend(check_trailing_comment(f))

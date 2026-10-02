@@ -75,25 +75,34 @@ BEGIN
     --
     -- 뷰에 보이는 컬럼은 하나도 빠짐없이 여기에 있어야 한다. 빠진 컬럼은 갱신이
     -- 조용히 사라진다. 오류도 나지 않고 한 행 갱신되었다고 나오므로 찾기 어렵다.
+    --
+    -- UPDATING('컬럼명') 은 PL/SQL 조건식에서만 쓸 수 있다. UPDATE 구문 안의
+    -- CASE 에 넣으면 PLS-00231 로 트리거가 컴파일되지 않는다. 그래서 컬럼별로
+    -- IF 를 가르고 UPDATE 를 따로 둔다.
     UPDATE TB_MEMBER_ENC
-       SET mbr_name_enc  = CASE WHEN UPDATING('MBR_NAME')
-                                THEN OCS_OWNER.PKG_SECURE_API.enc_name(:NEW.mbr_name)
-                                ELSE mbr_name_enc END,
-           mbr_name_idx  = CASE WHEN UPDATING('MBR_NAME')
-                                THEN OCS_OWNER.PKG_SECURE_API.idx_name(:NEW.mbr_name)
-                                ELSE mbr_name_idx END,
-           mbr_rrn_enc   = CASE WHEN UPDATING('MBR_RRN')
-                                THEN OCS_OWNER.PKG_SECURE_API.enc_rrn(:NEW.mbr_rrn)
-                                ELSE mbr_rrn_enc END,
-           mbr_rrn_idx   = CASE WHEN UPDATING('MBR_RRN')
-                                THEN OCS_OWNER.PKG_SECURE_API.idx_rrn(:NEW.mbr_rrn)
-                                ELSE mbr_rrn_idx END,
-           mbr_phone_enc = CASE WHEN UPDATING('MBR_PHONE')
-                                THEN OCS_OWNER.PKG_SECURE_API.protect('PHONE', :NEW.mbr_phone)
-                                ELSE mbr_phone_enc END,
-           mbr_pwd       = :NEW.mbr_pwd,
-           join_dt       = :NEW.join_dt
+       SET mbr_pwd = :NEW.mbr_pwd,
+           join_dt = :NEW.join_dt
      WHERE mbr_id = :OLD.mbr_id;
+
+    IF UPDATING('MBR_NAME') THEN
+      UPDATE TB_MEMBER_ENC
+         SET mbr_name_enc = OCS_OWNER.PKG_SECURE_API.enc_name(:NEW.mbr_name),
+             mbr_name_idx = OCS_OWNER.PKG_SECURE_API.idx_name(:NEW.mbr_name)
+       WHERE mbr_id = :OLD.mbr_id;
+    END IF;
+
+    IF UPDATING('MBR_RRN') THEN
+      UPDATE TB_MEMBER_ENC
+         SET mbr_rrn_enc = OCS_OWNER.PKG_SECURE_API.enc_rrn(:NEW.mbr_rrn),
+             mbr_rrn_idx = OCS_OWNER.PKG_SECURE_API.idx_rrn(:NEW.mbr_rrn)
+       WHERE mbr_id = :OLD.mbr_id;
+    END IF;
+
+    IF UPDATING('MBR_PHONE') THEN
+      UPDATE TB_MEMBER_ENC
+         SET mbr_phone_enc = OCS_OWNER.PKG_SECURE_API.protect('PHONE', :NEW.mbr_phone)
+       WHERE mbr_id = :OLD.mbr_id;
+    END IF;
 
   ELSIF DELETING THEN
     DELETE FROM TB_MEMBER_ENC WHERE mbr_id = :OLD.mbr_id;

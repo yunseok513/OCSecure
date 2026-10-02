@@ -129,25 +129,32 @@ BEGIN
     -- 비밀번호는 여기서 받지 않는다. 가입 직후 SP_STAFF_SET_PWD 로 따로 넣는다.
 
   ELSIF UPDATING THEN
+    -- UPDATING('컬럼명') 은 PL/SQL 조건식에서만 쓸 수 있다. UPDATE 구문 안의
+    -- CASE 에 넣으면 PLS-00231 로 컴파일되지 않으므로 컬럼별로 IF 를 가른다.
     UPDATE TB_STAFF_ENC
-       SET login_id     = :NEW.login_id,
-           staff_nm_enc = CASE WHEN UPDATING('STAFF_NM')
-                               THEN OCS_OWNER.PKG_SECURE_API.enc_name(:NEW.staff_nm)
-                               ELSE staff_nm_enc END,
-           staff_nm_idx = CASE WHEN UPDATING('STAFF_NM')
-                               THEN OCS_OWNER.PKG_SECURE_API.idx_name(:NEW.staff_nm)
-                               ELSE staff_nm_idx END,
-           rrn_enc      = CASE WHEN UPDATING('RRN')
-                               THEN OCS_OWNER.PKG_SECURE_API.enc_rrn(:NEW.rrn)
-                               ELSE rrn_enc END,
-           rrn_idx      = CASE WHEN UPDATING('RRN')
-                               THEN OCS_OWNER.PKG_SECURE_API.idx_rrn(:NEW.rrn)
-                               ELSE rrn_idx END,
-           tel_enc      = CASE WHEN UPDATING('TEL')
-                               THEN OCS_OWNER.PKG_SECURE_API.protect('PHONE', :NEW.tel)
-                               ELSE tel_enc END,
-           upd_dt       = :NEW.upd_dt
+       SET login_id = :NEW.login_id,
+           upd_dt   = :NEW.upd_dt
      WHERE staff_id = :OLD.staff_id;
+
+    IF UPDATING('STAFF_NM') THEN
+      UPDATE TB_STAFF_ENC
+         SET staff_nm_enc = OCS_OWNER.PKG_SECURE_API.enc_name(:NEW.staff_nm),
+             staff_nm_idx = OCS_OWNER.PKG_SECURE_API.idx_name(:NEW.staff_nm)
+       WHERE staff_id = :OLD.staff_id;
+    END IF;
+
+    IF UPDATING('RRN') THEN
+      UPDATE TB_STAFF_ENC
+         SET rrn_enc = OCS_OWNER.PKG_SECURE_API.enc_rrn(:NEW.rrn),
+             rrn_idx = OCS_OWNER.PKG_SECURE_API.idx_rrn(:NEW.rrn)
+       WHERE staff_id = :OLD.staff_id;
+    END IF;
+
+    IF UPDATING('TEL') THEN
+      UPDATE TB_STAFF_ENC
+         SET tel_enc = OCS_OWNER.PKG_SECURE_API.protect('PHONE', :NEW.tel)
+       WHERE staff_id = :OLD.staff_id;
+    END IF;
 
   ELSIF DELETING THEN
     DELETE FROM TB_STAFF_ENC WHERE staff_id = :OLD.staff_id;
