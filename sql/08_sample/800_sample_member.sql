@@ -69,13 +69,30 @@ BEGIN
             NVL(:NEW.join_dt, SYSDATE));
 
   ELSIF UPDATING THEN
+    -- 바뀐 컬럼만 다시 암호화한다. :NEW 는 건드리지 않은 컬럼의 현재 값도 담고
+    -- 있으므로, 조건 없이 전부 다시 암호화하면 값이 같은데도 초기화 벡터가 새로
+    -- 생겨 암호문이 바뀐다. 쓸데없는 연산과 재실행 로그가 쌓인다.
+    --
+    -- 뷰에 보이는 컬럼은 하나도 빠짐없이 여기에 있어야 한다. 빠진 컬럼은 갱신이
+    -- 조용히 사라진다. 오류도 나지 않고 한 행 갱신되었다고 나오므로 찾기 어렵다.
     UPDATE TB_MEMBER_ENC
-       SET mbr_name_enc  = OCS_OWNER.PKG_SECURE_API.enc_name(:NEW.mbr_name),
-           mbr_name_idx  = OCS_OWNER.PKG_SECURE_API.idx_name(:NEW.mbr_name),
-           mbr_rrn_enc   = OCS_OWNER.PKG_SECURE_API.enc_rrn(:NEW.mbr_rrn),
-           mbr_rrn_idx   = OCS_OWNER.PKG_SECURE_API.idx_rrn(:NEW.mbr_rrn),
-           mbr_phone_enc = OCS_OWNER.PKG_SECURE_API.protect('PHONE', :NEW.mbr_phone),
-           mbr_pwd       = :NEW.mbr_pwd
+       SET mbr_name_enc  = CASE WHEN UPDATING('MBR_NAME')
+                                THEN OCS_OWNER.PKG_SECURE_API.enc_name(:NEW.mbr_name)
+                                ELSE mbr_name_enc END,
+           mbr_name_idx  = CASE WHEN UPDATING('MBR_NAME')
+                                THEN OCS_OWNER.PKG_SECURE_API.idx_name(:NEW.mbr_name)
+                                ELSE mbr_name_idx END,
+           mbr_rrn_enc   = CASE WHEN UPDATING('MBR_RRN')
+                                THEN OCS_OWNER.PKG_SECURE_API.enc_rrn(:NEW.mbr_rrn)
+                                ELSE mbr_rrn_enc END,
+           mbr_rrn_idx   = CASE WHEN UPDATING('MBR_RRN')
+                                THEN OCS_OWNER.PKG_SECURE_API.idx_rrn(:NEW.mbr_rrn)
+                                ELSE mbr_rrn_idx END,
+           mbr_phone_enc = CASE WHEN UPDATING('MBR_PHONE')
+                                THEN OCS_OWNER.PKG_SECURE_API.protect('PHONE', :NEW.mbr_phone)
+                                ELSE mbr_phone_enc END,
+           mbr_pwd       = :NEW.mbr_pwd,
+           join_dt       = :NEW.join_dt
      WHERE mbr_id = :OLD.mbr_id;
 
   ELSIF DELETING THEN
