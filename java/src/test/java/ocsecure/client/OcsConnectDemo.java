@@ -43,13 +43,25 @@ import java.sql.Types;
  *
  * <p>윈도우에서는 클래스패스 구분자가 쌍점이 아니라 쌍반점이다.
  *
- * <p>증표 키를 명령행에 그대로 적으면 명령 이력에 남는다. 확인이 끝나면 이력을
- * 지우는 편이 낫고, 운영 코드에서는 키 관리 제품이나 기동 시점 주입 값에서 읽어야
- * 한다.
+ * <p>암호와 증표 키 자리에 하이픈(-)을 적으면 실행할 때 화면에 보이지 않게 입력받는다.
+ * 명령행에 그대로 적으면 명령 이력과 실행 중 프로세스 목록에 남으므로 하이픈을 쓴다.
+ * 운영 코드에서는 키 관리 제품이나 기동 시점 주입 값에서 읽어야 한다.
  */
 public final class OcsConnectDemo {
 
     private static final String RRN = "8001011234567";
+
+    /** 값이 하이픈이면 화면에 보이지 않게 입력받고, 아니면 그대로 쓴다. */
+    private static String secret(String arg, String prompt) throws Exception {
+        if (!"-".equals(arg)) {
+            return arg;
+        }
+        java.io.Console c = System.console();
+        if (c == null) {
+            throw new IllegalStateException("콘솔이 없어 비밀값을 입력받을 수 없다. 명령 프롬프트에서 실행하십시오.");
+        }
+        return new String(c.readPassword("%s", prompt));
+    }
 
     public static void main(String[] args) throws Exception {
         if (args.length < 4) {
@@ -58,8 +70,8 @@ public final class OcsConnectDemo {
         }
         String url = args[0];
         String user = args[1];
-        String pwd = args[2];
-        byte[] appCtxKey = OcsCrypto.fromHex(args[3]);
+        String pwd = secret(args[2], "응용 계정 암호: ");
+        byte[] appCtxKey = OcsCrypto.fromHex(secret(args[3], "증표 키(16진 64자): "));
         boolean dataMode = false;
         boolean keepData = false;
         boolean readOnly = false;

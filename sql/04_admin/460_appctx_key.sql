@@ -21,10 +21,13 @@
 SET SERVEROUTPUT ON SIZE 100000
 SET FEEDBACK OFF
 SET DEFINE ON
+-- 키 값이 화면과 로그에 찍히지 않도록 치환 결과를 끄고 입력을 가린다.
+SET ECHO OFF
+SET VERIFY OFF
 
-ACCEPT k_enc CHAR PROMPT '  1) 예비 키 1 (16진 64자): '
-ACCEPT k_mac CHAR PROMPT '  2) 예비 키 2 (16진 64자): '
-ACCEPT k_idx CHAR PROMPT '  3) 증표용 키  (16진 64자): '
+ACCEPT k_enc CHAR PROMPT '  1) 예비 키 1 (16진 64자): ' HIDE
+ACCEPT k_mac CHAR PROMPT '  2) 예비 키 2 (16진 64자): ' HIDE
+ACCEPT k_idx CHAR PROMPT '  3) 증표용 키  (16진 64자): ' HIDE
 
 PROMPT
 PROMPT === 1. 도메인 등록 ===
@@ -71,5 +74,7 @@ SELECT domain_code, key_id, key_state FROM OCS_OWNER.V_SEC_KEY_STATUS
 PROMPT
 PROMPT 세 번째로 넣은 증표용 키를 애플리케이션 서버 설정에 넣을 것.
 PROMPT 데이터베이스 쪽에서는 이 값을 다시 꺼낼 수 없다.
+
+UNDEFINE k_enc k_mac k_idx
 
 SET FEEDBACK ON

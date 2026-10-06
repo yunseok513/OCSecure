@@ -4,6 +4,9 @@
 -- 보안관리 설계서 제5절의 네 종 계정 구조를 그대로 옮긴 것이다.
 -- 비밀번호는 여기에 두지 않는다. 설치 시 치환 변수로 입력받는다.
 
+-- 치환 결과(old/new 줄)에 비밀번호가 찍히지 않도록 끈다. 입력은 HIDE 로 가린다.
+SET ECHO OFF
+SET VERIFY OFF
 SET DEFINE ON
 ACCEPT sec_owner_pwd    CHAR PROMPT '암호 모듈 소유 계정(OCS_OWNER) 비밀번호: '   HIDE
 ACCEPT key_admin_pwd    CHAR PROMPT '키 관리 계정(OCS_KEYADM) 비밀번호: '        HIDE
@@ -42,10 +45,8 @@ GRANT CREATE SESSION TO OCS_AUDITOR;
 CREATE USER OCS_APP IDENTIFIED BY "&app_user_pwd"
   DEFAULT TABLESPACE USERS QUOTA UNLIMITED ON USERS;
 GRANT CREATE SESSION TO OCS_APP;
--- 투명화 뷰와 그 트리거를 응용 스키마에 만들려면 아래가 필요하다. 실제 사업에서는
--- 업무 스키마가 이미 있고 이 권한도 이미 있을 것이므로, 그때는 이 줄이 필요 없다.
--- 여기서는 08_sample 을 돌려 볼 수 있도록 둔다.
-GRANT CREATE TABLE, CREATE VIEW, CREATE TRIGGER TO OCS_APP;
+-- 표와 뷰와 트리거를 만드는 권한은 여기서 주지 않는다. 예시(08_sample)를 돌려 볼 때
+-- 설치 매뉴얼 제4.3.1절에서 잠시 주고, 끝나면 제4.6.2절에서 거둔다.
 
 -- 역할 -----------------------------------------------------------------------
 -- 권한을 계정에 직접 주지 않고 역할을 거치게 하여, 권한 현황 점검을 쉽게 한다.
@@ -110,3 +111,6 @@ SELECT r.n AS 없는_문맥
   FROM (SELECT 'OCS_APP_CTX' AS n FROM dual
         UNION ALL SELECT 'OCS_KEK_CTX' FROM dual) r
  WHERE NOT EXISTS (SELECT 1 FROM dba_context c WHERE c.namespace = r.n);
+
+-- 입력받은 비밀번호 변수를 지운다.
+UNDEFINE sec_owner_pwd key_admin_pwd auditor_pwd app_user_pwd
