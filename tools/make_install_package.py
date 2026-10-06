@@ -186,7 +186,7 @@ def main():
     log('[정상] CP949 사본 %d개를 sql_cp949/ 에 담았다' % n_f)
 
     if not build_jar(dest):
-        log('[주의] 미리 컴파일한 라이브러리 없이 만들어졌다.')
+        log('[주의] 미리 컴파일한 jar 없이 만들어졌다. 설치에는 지장이 없으나, 응용 서버에 jar 를 전달해야 하면 JDK 가 있는 장비에서 다시 만드십시오.')
 
     write_version(dest, stamp, git_rev())
     write_manifest(dest)

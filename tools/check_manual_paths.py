@@ -32,7 +32,7 @@ def main():
         return 2
 
     text = open(manual, encoding='utf-8').read()
-    missing, seen = [], set()
+    missing, seen, optional_missing = [], set(), []
     for m in PATH_RE.finditer(text):
         p = m.group(1).replace('\\', '/').rstrip('./')
         if p in seen:
@@ -40,7 +40,11 @@ def main():
         seen.add(p)
         if p in GENERATED:
             continue
-        if len(sys.argv) <= 1 and p.endswith('.jar'):
+        if p.endswith('.jar'):
+            # 미리 컴파일한 라이브러리는 JDK 가 있는 장비에서 만들 때만 담긴다.
+            # 설치 절차는 이것을 쓰지 않으므로 없어도 오류로 보지 않는다.
+            if not os.path.exists(os.path.join(base, p)):
+                optional_missing.append(p)
             continue
         if not os.path.exists(os.path.join(base, p.replace('/', os.sep))):
             missing.append(p)
@@ -53,6 +57,8 @@ def main():
         print('  [없음] ' + p)
     for b in bad:
         print('  [패키지에 없는 문서를 가리킴] ' + b)
+    for p in optional_missing:
+        print('  [참고] 선택 항목이 없다: ' + p + ' (JDK 가 있는 장비에서 다시 만들면 담긴다)')
     if missing or bad:
         return 1
     print('  모두 있다')
