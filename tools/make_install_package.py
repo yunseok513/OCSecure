@@ -166,6 +166,9 @@ def main():
         shutil.rmtree(dest)
     os.makedirs(dest)
 
+    # 설치 매뉴얼은 원본에서 만든 결과여야 한다. 어긋나 있으면 중단한다.
+    if subprocess.call([sys.executable, '-I', os.path.join(ROOT, 'tools', 'build_manual.py'), '--check']) != 0:
+        raise SystemExit('[오류] 설치 매뉴얼이 원본과 다르다. python tools/build_manual.py 를 먼저 실행하십시오.')
     copy_file(MANUAL_SRC, dest, MANUAL_DST)
     count = 1
     for d in COPY_DIRS:

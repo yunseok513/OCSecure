@@ -7,6 +7,7 @@
   2. 고정 시험 벡터가 참조 구현과 일치하는지
   3. PL/SQL 정적 점검
   4. 자바 연동 모듈 컴파일과 고정 시험 벡터 대조
+  5. 설치 매뉴얼이 원본(tmpl)에서 만든 것과 같은지, 언급한 경로가 있는지
 
 실 인스턴스에서의 컴파일과 자체 시험(sql/09_test/902_selftest.sql)은 이것으로
 대신할 수 없다.
@@ -144,6 +145,14 @@ def java_sources():
     return sorted(out)
 
 
+def check_manual():
+    title('5. 설치 매뉴얼이 원본과 맞는지')
+    if run([sys.executable, '-I', os.path.join('tools', 'build_manual.py'), '--check']) != 0:
+        failed.append('설치 매뉴얼 원본 대조')
+    if run([sys.executable, '-I', os.path.join('tools', 'check_manual_paths.py')]) != 0:
+        failed.append('설치 매뉴얼 경로 대조')
+
+
 def check_java():
     title('4. 자바 연동 모듈')
     if shutil.which('javac') is None or shutil.which('java') is None:
@@ -171,16 +180,16 @@ def main():
     ap = argparse.ArgumentParser(description='OCSecure 개발 점검')
     ap.add_argument('--strict', action='store_true',
                     help='건너뛴 항목도 실패로 본다. 지속 통합에서 쓴다')
-    ap.add_argument('--only', choices=['python', 'vectors', 'plsql', 'java'],
+    ap.add_argument('--only', choices=['python', 'vectors', 'plsql', 'java', 'manual'],
                     help='한 가지만 수행한다')
     args = ap.parse_args()
 
     steps = {'python': check_unit_tests, 'vectors': check_vectors,
-             'plsql': check_plsql, 'java': check_java}
+             'plsql': check_plsql, 'java': check_java, 'manual': check_manual}
     if args.only:
         steps[args.only]()
     else:
-        for name in ('python', 'vectors', 'plsql', 'java'):
+        for name in ('python', 'vectors', 'plsql', 'java', 'manual'):
             steps[name]()
 
     print('')
