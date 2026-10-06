@@ -86,6 +86,6 @@ PROMPT === 남은 문맥 (비어 있어야 정상) ===
 SELECT namespace FROM dba_context WHERE namespace LIKE 'OCS%';
 
 PROMPT
-PROMPT 셋 다 비어 있으면 설치 전 상태다. 설치 매뉴얼 제1장부터 다시 시작하면 된다.
+PROMPT 셋 다 비어 있으면 설치 전 상태다. 설치 매뉴얼 제3장부터 다시 시작하면 된다.
 
 SET FEEDBACK ON

@@ -67,7 +67,7 @@ CREATE OR REPLACE PACKAGE PKG_SECURE_API AS
   FUNCTION check_pwd(p_password IN VARCHAR2, p_stored IN VARCHAR2) RETURN NUMBER;
 
   -- 저장값의 상태만 본다. 비밀번호를 입력받기 전에 화면을 고르는 데 쓴다.
-  -- 업무포털 단일 인증으로 들어오는 이용자는 비밀번호를 쓰지 않으므로 저장값이
+  -- 단일 인증으로 들어오는 이용자는 비밀번호를 쓰지 않으므로 저장값이
   -- 비어 있다. 그 상태를 로그인 실패와 구분해야 안내 문구를 제대로 낼 수 있다.
   --
   -- 0 = 미설정. 로그인시키지 말고 설정 절차로 보낸다.

@@ -37,7 +37,7 @@ import java.sql.Types;
  * <pre>
  *   javac -cp ojdbc8.jar -d out $(find java/src -name '*.java')
  *   java  -cp out:ojdbc8.jar ocsecure.client.OcsConnectDemo \
- *         "jdbc:oracle:thin:@호스트:포트/SFISPDB949" OCS_APP 암호 &lt;증표키 16진 64자&gt;
+ *         "jdbc:oracle:thin:@호스트:포트/서비스명" OCS_APP 암호 &lt;증표키 16진 64자&gt;
  *   java  -cp out:ojdbc8.jar ocsecure.client.OcsConnectDemo ... &lt;증표키&gt; --data
  * </pre>
  *

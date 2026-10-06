@@ -36,7 +36,7 @@ import java.util.Set;
  * 윈도우에서는 해당 서비스 계정만 읽도록 접근 제어를 건다.
  *
  * <pre>
- *   jdbc.url=jdbc:oracle:thin:@호스트:1521/SFISPDB949
+ *   jdbc.url=jdbc:oracle:thin:@호스트:1521/서비스명
  *   jdbc.user=OCS_KEYADM
  *   jdbc.password=...
  *   master.key=&lt;16진 64자&gt;
