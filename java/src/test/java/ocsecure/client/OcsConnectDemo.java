@@ -37,8 +37,8 @@ import java.sql.Types;
  * <pre>
  *   javac -cp ojdbc8.jar -d out $(find java/src -name '*.java')
  *   java  -cp out:ojdbc8.jar ocsecure.client.OcsConnectDemo \
- *         "jdbc:oracle:thin:@호스트:포트/서비스명" OCS_APP 암호 &lt;증표키 16진 64자&gt;
- *   java  -cp out:ojdbc8.jar ocsecure.client.OcsConnectDemo ... &lt;증표키&gt; --data
+ *         "jdbc:oracle:thin:@호스트:포트/서비스명" OCS_APP - -
+ *   java  -cp out:ojdbc8.jar ocsecure.client.OcsConnectDemo ... OCS_APP - - --data
  * </pre>
  *
  * <p>윈도우에서는 클래스패스 구분자가 쌍점이 아니라 쌍반점이다.
@@ -65,7 +65,7 @@ public final class OcsConnectDemo {
 
     public static void main(String[] args) throws Exception {
         if (args.length < 4) {
-            System.out.println("사용법: OcsConnectDemo <jdbcUrl> <사용자> <암호> <증표키16진>");
+            System.out.println("사용법: OcsConnectDemo <jdbcUrl> <사용자> <암호|-> <증표키16진|->  (-는 화면에 보이지 않게 입력)");
             System.exit(2);
         }
         String url = args[0];

@@ -64,3 +64,4 @@ AUDIT POLICY ocs_pol_priv_change;
 --   라. 마스터 키 백업본의 복구 시험을 수행하고 결과를 기록한다.
 PROMPT
 PROMPT === 잠금 완료. 위 4항의 데이터베이스 외부 조치가 남아 있다. ===
+PROMPT 이것은 개통 승인이 아니다. 운영 개통 조건은 320_golive_check.sql 로 판정한다.
