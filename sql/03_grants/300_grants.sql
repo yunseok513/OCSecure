@@ -12,6 +12,18 @@ GRANT EXECUTE ON PKG_SECURE_API TO OCS_ROLE_APP;
 -- 투명화 뷰를 응용 스키마에 만들려면 이 부여가 필요하다.
 GRANT EXECUTE ON PKG_SECURE_API TO OCS_APP;
 
+-- 짧은 함수 이름(FN_ 으로 시작하는 단독 함수, 220_fn_wrappers.sql)에도 같은 원칙을
+-- 적용한다. 이 함수들은 PKG_SECURE_API 를 부를 뿐이므로 통제는 달라지지 않는다.
+-- 이름이 늘어도 빠지지 않도록 목록을 직접 적지 않고 찾아서 부여한다.
+BEGIN
+  FOR f IN (SELECT object_name FROM user_objects
+             WHERE object_type = 'FUNCTION' AND object_name LIKE 'FN\_%' ESCAPE '\') LOOP
+    EXECUTE IMMEDIATE 'GRANT EXECUTE ON ' || f.object_name || ' TO OCS_ROLE_APP';
+    EXECUTE IMMEDIATE 'GRANT EXECUTE ON ' || f.object_name || ' TO OCS_APP';
+  END LOOP;
+END;
+/
+
 -- 키 관리자 -------------------------------------------------------------------
 GRANT EXECUTE ON PKG_KEY_ADMIN    TO OCS_ROLE_KEYADM;
 GRANT EXECUTE ON PKG_REKEY        TO OCS_ROLE_KEYADM;

@@ -48,6 +48,7 @@ COPY_FILES = [
     os.path.join('sql', '04_admin', '450_bootstrap_domains.sql'),
     os.path.join('sql', '04_admin', '460_appctx_key.sql'),
     os.path.join('sql', '04_admin', '470_keystore_check.sql'),
+    os.path.join('sql', '04_admin', '480_app_synonyms.sql'),
     os.path.join('java', 'pom.xml'),
     os.path.join('java', 'keeper.bat'),
     os.path.join('java', 'keeper.properties.sample'),

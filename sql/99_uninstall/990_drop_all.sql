@@ -56,6 +56,17 @@ BEGIN
   try('DROP CONTEXT OCS_APP_CTX');
   try('DROP CONTEXT OCS_KEK_CTX');
 
+  -- 다른 스키마에 만든 FN_ 시노님(480_app_synonyms.sql)은 대상이 사라지면 깨진 채
+  -- 남으므로 먼저 지운다. OCS_APP 의 것은 계정과 함께 사라진다.
+  FOR s IN (SELECT owner, synonym_name FROM dba_synonyms
+             WHERE table_owner = 'OCS_OWNER' AND owner <> 'OCS_APP') LOOP
+    IF s.owner = 'PUBLIC' THEN
+      try('DROP PUBLIC SYNONYM ' || s.synonym_name);
+    ELSE
+      try('DROP SYNONYM ' || s.owner || '.' || s.synonym_name);
+    END IF;
+  END LOOP;
+
   -- 계정을 통째로 지우면 그 안의 표와 패키지와 키가 함께 사라진다.
   try('DROP USER OCS_OWNER CASCADE');
   try('DROP USER OCS_KEYADM CASCADE');
