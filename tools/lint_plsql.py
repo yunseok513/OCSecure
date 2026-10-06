@@ -15,6 +15,7 @@
   7. SQL 문 안에서 지역 서브프로그램을 부르고 있지는 않은가
   8. 최상위 구문의 세미콜론 뒤에 주석을 같은 줄로 붙이지 않았는가
   9. 트리거의 조건 술어(UPDATING('컬럼') 등)를 SQL 문 안에서 쓰지 않았는가
+ 10. 한 파일에서 같은 패키지의 명세나 본문을 두 번 정의하지 않았는가
 """
 
 import glob
@@ -211,6 +212,9 @@ def check_file(path):
             continue
         is_body, name = bool(m.group(1)), m.group(2).upper()
         subs = {s.group(2).upper() for s in RE_SUB.finditer(unit)}
+        if name in (bodies if is_body else specs):
+            errs.append('%s: 패키지 %s 의 %s 가 한 파일에 두 번 정의되었다'
+                        % (os.path.basename(path), name, '본문' if is_body else '명세'))
         (bodies if is_body else specs)[name] = subs
 
         ends = [e.group(1).upper() for e in RE_END.finditer(unit)]
