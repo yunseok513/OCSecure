@@ -20,7 +20,8 @@ DECLARE
   v_ctx  VARCHAR2(10);
   v_open VARCHAR2(10);
 BEGIN
-  v_ctx  := CASE WHEN SYS_CONTEXT('OCS_KEK_CTX', 'MASTER') IS NOT NULL
+  -- SCOPED_CTX 의 문맥은 토큰 없이는 읽히므로 패키지 함수로 묻는다.
+  v_ctx  := CASE WHEN OCS_OWNER.PKG_KEK_PROVIDER.context_present = 1
                  THEN '있음' ELSE '없음' END;
   v_open := CASE WHEN OCS_OWNER.PKG_KEK_PROVIDER.is_open
                  THEN '열림' ELSE '닫힘' END;

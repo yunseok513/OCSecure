@@ -55,12 +55,13 @@ public final class OcsKeystoreKeeper {
 
     private static final String SQL_SET =
             "{ call OCS_OWNER.PKG_KEK_PROVIDER.set_master_key(HEXTORAW(?)) }";
-    // 열려 있는지는 전역 문맥으로 판정한다. PKG_KEK_PROVIDER.is_open 은 세션이 담아 둔
+    // 열려 있는지는 전역 문맥으로 판정한다. SCOPED_CTX 에서는 토큰이 있어야 읽히므로
+    // 문맥은 직접 읽지 않고 패키지 함수(context_present)로 묻는다. PKG_KEK_PROVIDER.is_open 은 세션이 담아 둔
     // 값을 보므로, 다른 세션이 저장소를 닫아 전역 문맥이 비워져도 이 프로그램의 세션에는
     // 계속 열림으로 보인다. 그러면 닫힌 것을 알아채지 못한다. 키 값은 읽지 않고 있는지만
     // 묻는다. 문맥에 값이 있을 때만 세션 상태도 함께 확인한다.
     private static final String SQL_IS_OPEN =
-            "BEGIN ? := CASE WHEN SYS_CONTEXT('OCS_KEK_CTX', 'MASTER') IS NOT NULL"
+            "BEGIN ? := CASE WHEN OCS_OWNER.PKG_KEK_PROVIDER.context_present = 1"
             + " AND OCS_OWNER.PKG_KEK_PROVIDER.is_open THEN 1 ELSE 0 END; END;";
     private static final String SQL_PING = "SELECT 1 FROM DUAL";
 

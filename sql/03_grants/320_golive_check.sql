@@ -6,6 +6,7 @@
 -- 판정하고 하나라도 어긋나면 오류로 끝낸다. 개통 승인은 이 스크립트가 통과한 뒤에만 한다.
 --
 -- 개발과 시험 설치(KEK_SOURCE=GLOBAL_CTX)에서는 불가로 끝나는 것이 정상이다.
+-- KEK_SOURCE=SCOPED_CTX 는 위험 수용 기록(KEK_RISK_ACK)이 있을 때만 통과한다.
 
 WHENEVER SQLERROR EXIT SQL.SQLCODE
 SET SERVEROUTPUT ON SIZE 100000
@@ -28,7 +29,14 @@ BEGIN
   DBMS_OUTPUT.PUT_LINE('=== 운영 개통 판정 ===');
 
   SELECT cfg_value INTO v_val FROM OCS_OWNER.SEC_CONFIG WHERE cfg_key = 'KEK_SOURCE';
-  chk('마스터 키 반입 방식', v_val = 'EXTERNAL', 'KEK_SOURCE=' || v_val);
+  IF v_val = 'SCOPED_CTX' THEN
+    -- 외부 키 관리 서버를 쓸 수 없는 운영용. 남는 위험을 수용했다는 기록이 있어야 한다.
+    SELECT COUNT(*) INTO v_n FROM OCS_OWNER.SEC_CONFIG WHERE cfg_key = 'KEK_RISK_ACK';
+    chk('마스터 키 반입 방식', v_n = 1,
+        'KEK_SOURCE=SCOPED_CTX, 위험 수용 기록 ' || CASE WHEN v_n = 1 THEN '있음' ELSE '없음(490_kek_risk_ack.sql)' END);
+  ELSE
+    chk('마스터 키 반입 방식', v_val = 'EXTERNAL', 'KEK_SOURCE=' || v_val);
+  END IF;
 
   SELECT cfg_value INTO v_val FROM OCS_OWNER.SEC_CONFIG WHERE cfg_key = 'APPCTX_MODE';
   chk('응용 문맥 증표 검증', v_val = 'PROOF', 'APPCTX_MODE=' || v_val);

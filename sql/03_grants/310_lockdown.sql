@@ -12,12 +12,13 @@ ALTER USER OCS_OWNER ACCOUNT LOCK;
 -- 2. 운영 설정으로 전환 ----------------------------------------------------------
 -- 개발 전용 설정이 운영에 남아 있으면 통제가 사실상 없는 것과 같다.
 -- 아래 두 값은 반드시 확인할 것.
---   KEK_SOURCE  = EXTERNAL   (GLOBAL_CTX 는 개발 전용)
+--   KEK_SOURCE  = EXTERNAL   (또는 SCOPED_CTX 와 위험 수용 확인. GLOBAL_CTX 는 개발 전용)
 --   APPCTX_MODE = PROOF      (SIMPLE 은 개발 전용)
 PROMPT
 PROMPT === 운영 전환 설정 점검 ===
 SELECT cfg_key, cfg_value,
-       CASE WHEN cfg_key = 'KEK_SOURCE'  AND cfg_value <> 'EXTERNAL' THEN '위험'
+       CASE WHEN cfg_key = 'KEK_SOURCE'  AND cfg_value = 'SCOPED_CTX' THEN '조건부(위험 수용 확인 필요)'
+            WHEN cfg_key = 'KEK_SOURCE'  AND cfg_value <> 'EXTERNAL' THEN '위험'
             WHEN cfg_key = 'APPCTX_MODE' AND cfg_value <> 'PROOF'    THEN '위험'
             ELSE '정상' END AS verdict
   FROM OCS_OWNER.SEC_CONFIG
