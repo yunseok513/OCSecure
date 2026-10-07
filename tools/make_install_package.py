@@ -60,6 +60,7 @@ COPY_FILES = [
 OPS_DOCS = {
     os.path.join('docs', '60_비밀번호시스템_관리자설명서.md'): '관리자_매뉴얼.md',
     os.path.join('docs', '61_비밀번호시스템_개발자설명서.md'): '개발자_매뉴얼.md',
+    os.path.join('docs', '62_오류_대응_매뉴얼.md'): '오류_대응_매뉴얼.md',
 }
 
 SKIP_NAMES = {'__pycache__', '.git', 'target', 'build'}
