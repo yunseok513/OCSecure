@@ -27,6 +27,32 @@ SELECT cfg_key, cfg_value,
 -- 보안관리 설계서 제9절에서 반드시 감사하도록 정한 다섯 가지 사건이다.
 -- 통합 감사(12c 이상)를 전제로 한다.
 
+-- 다시 실행해도 안전하도록, 같은 이름의 정책이 이미 있으면 먼저 끄고 지운 뒤 만든다.
+-- 이전 설치가 남긴 정책은 그 정책이 가리키던 표(SEC_KEY 등)가 사라지면서 감사 옵션이
+-- 하나도 없는 빈 정책이 되는데, 빈 정책은 켤 수 없고(ORA-46373) 같은 이름으로 다시
+-- 만들 수도 없다(ORA-46358). 빈 정책은 조회 뷰에도 나오지 않으므로 이름으로 직접 지운다.
+DECLARE
+  PROCEDURE try(p_sql IN VARCHAR2) IS
+  BEGIN
+    EXECUTE IMMEDIATE p_sql;
+  EXCEPTION
+    WHEN OTHERS THEN
+      NULL;
+  END try;
+BEGIN
+  FOR n IN 1 .. 4 LOOP
+    try('NOAUDIT POLICY ' || CASE n WHEN 1 THEN 'ocs_pol_owner_access'
+                                    WHEN 2 THEN 'ocs_pol_ddl'
+                                    WHEN 3 THEN 'ocs_pol_key_table'
+                                    ELSE 'ocs_pol_priv_change' END);
+    try('DROP AUDIT POLICY ' || CASE n WHEN 1 THEN 'ocs_pol_owner_access'
+                                       WHEN 2 THEN 'ocs_pol_ddl'
+                                       WHEN 3 THEN 'ocs_pol_key_table'
+                                       ELSE 'ocs_pol_priv_change' END);
+  END LOOP;
+END;
+/
+
 CREATE AUDIT POLICY ocs_pol_owner_access
   ACTIONS LOGON, LOGOFF
   WHEN 'SYS_CONTEXT(''USERENV'', ''SESSION_USER'') = ''OCS_OWNER'''

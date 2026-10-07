@@ -51,6 +51,16 @@ DECLARE
     v_dummy := try_b(p_sql);
   END try;
 
+  -- 없어도 되는 것을 지울 때 쓴다. 실패해도 말하지 않는다.
+  PROCEDURE try_q(p_sql IN VARCHAR2) IS
+  BEGIN
+    EXECUTE IMMEDIATE p_sql;
+    DBMS_OUTPUT.PUT_LINE('  지움: ' || p_sql);
+  EXCEPTION
+    WHEN OTHERS THEN
+      NULL;
+  END try_q;
+
   -- 계정을 지운다. 접속 중인 세션이 있으면 지워지지 않으므로(ORA-01940) 먼저 계정을
   -- 잠가 새 접속을 막고, 접속 중인 세션을 끊은 뒤 지운다. 키 저장소 유지 프로그램이
   -- 이 계정으로 계속 다시 접속하는 경우에도 잠겨 있으므로 접속하지 못한다.
@@ -85,10 +95,12 @@ BEGIN
 
   -- 통합 감사 정책(310_lockdown.sql 이 만든 것). 정책은 계정과 별개로 남으므로 계정보다
   -- 먼저 끄고 지운다. 남겨 두면 다시 설치할 때 310 이 「이미 있다」로 실패한다.
-  FOR p IN (SELECT DISTINCT policy_name FROM audit_unified_policies
-             WHERE policy_name LIKE 'OCS\_POL\_%' ESCAPE '\') LOOP
-    try('NOAUDIT POLICY ' || p.policy_name);
-    try('DROP AUDIT POLICY ' || p.policy_name);
+  -- 정책이 가리키던 표가 먼저 사라져 감사 옵션이 없는 빈 정책은 조회 뷰에 나오지 않으므로
+  -- 이름을 직접 적어 지운다.
+  FOR p IN (SELECT column_value AS policy_name FROM TABLE(SYS.ODCIVARCHAR2LIST(
+              'OCS_POL_OWNER_ACCESS', 'OCS_POL_DDL', 'OCS_POL_KEY_TABLE', 'OCS_POL_PRIV_CHANGE'))) LOOP
+    try_q('NOAUDIT POLICY ' || p.policy_name);
+    try_q('DROP AUDIT POLICY ' || p.policy_name);
   END LOOP;
 
   -- 문맥은 계정보다 먼저 지운다.
