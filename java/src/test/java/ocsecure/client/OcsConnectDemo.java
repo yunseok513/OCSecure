@@ -90,7 +90,7 @@ public final class OcsConnectDemo {
         }
         byte[] appCtxKey = OcsCrypto.fromHex(keyHex);
         System.out.println("증표 키: 64자 확인, 지문 " + fingerprint(appCtxKey)
-            + " (키를 만들 때 찍힌 지문과 같아야 한다)");
+            + " (460_appctx_key.sql 의 '증표용 키' 지문과 같아야 한다)");
         boolean dataMode = false;
         boolean keepData = false;
         boolean readOnly = false;

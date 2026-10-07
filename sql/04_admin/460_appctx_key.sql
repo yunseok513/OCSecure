@@ -30,6 +30,41 @@ ACCEPT k_mac CHAR PROMPT '  2) 예비 키 2 (16진 64자): ' HIDE
 ACCEPT k_idx CHAR PROMPT '  3) 증표용 키  (16진 64자): ' HIDE
 
 PROMPT
+PROMPT === 0. 입력 점검 (키 값은 표시하지 않는다) ===
+PROMPT     입력은 화면에 보이지 않으므로 길이와 지문으로 확인한다.
+PROMPT     지문은 키의 SHA-256 앞 4바이트이며 키를 되살릴 수 없다.
+PROMPT     셋째 키의 지문은 자바 연동 확인(OcsConnectDemo)에서 찍히는 지문과 같아야 한다.
+-- 입력이 잘못되었으면 키를 등록하기 전에 여기서 끝낸다.
+WHENEVER SQLERROR EXIT FAILURE
+DECLARE
+  v_bad PLS_INTEGER := 0;
+  PROCEDURE chk(p_label VARCHAR2, p_val VARCHAR2) IS
+    v_ok BOOLEAN := REGEXP_LIKE(p_val, '^[0-9A-Fa-f]{64}$');
+  BEGIN
+    DBMS_OUTPUT.PUT_LINE('  ' || p_label || ': ' || LENGTH(p_val) || '자, '
+      || CASE WHEN v_ok
+           THEN '형식 정상, 지문 '
+                || LOWER(SUBSTR(RAWTOHEX(STANDARD_HASH(HEXTORAW(p_val), 'SHA256')), 1, 8))
+           ELSE '형식 오류 (16진 64자가 아니다)' END);
+    IF NOT v_ok THEN v_bad := v_bad + 1; END IF;
+  END;
+BEGIN
+  chk('예비 키 1', '&k_enc');
+  chk('예비 키 2', '&k_mac');
+  chk('증표용 키', '&k_idx');
+  IF '&k_enc' = '&k_mac' OR '&k_enc' = '&k_idx' OR '&k_mac' = '&k_idx' THEN
+    DBMS_OUTPUT.PUT_LINE('  경고: 같은 값이 둘 이상의 칸에 들어갔다. 세 줄은 서로 달라야 한다.');
+    v_bad := v_bad + 1;
+  END IF;
+  IF v_bad > 0 THEN
+    DBMS_OUTPUT.PUT_LINE('  입력에 문제가 있어 중단한다. 길이가 128이면 두 번 붙여 넣은 것이다.');
+    RAISE_APPLICATION_ERROR(-20000, 'APPCTX key input invalid');
+  END IF;
+END;
+/
+WHENEVER SQLERROR CONTINUE
+
+PROMPT
 PROMPT === 1. 도메인 등록 ===
 BEGIN
   -- 자료 도메인이 아니라 내부용이다. 문맥을 세우는 데 쓰는 것이므로
