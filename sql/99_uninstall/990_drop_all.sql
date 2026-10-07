@@ -32,16 +32,48 @@ ACCEPT ok CHAR PROMPT '  정말 지우려면 DROP 이라고 입력하시오: '
 DECLARE
   v_ok  VARCHAR2(20) := '&ok';
 
-  PROCEDURE try(p_sql IN VARCHAR2) IS
+  -- 실행하고 성공 여부를 돌려준다. 실패한 이유를 그대로 보여 준다. 없는 것을 지우려 한
+  -- 경우는 호출하는 쪽이 먼저 걸러 내므로, 여기서의 실패는 실제로 지우지 못한 것이다.
+  FUNCTION try_b(p_sql IN VARCHAR2) RETURN BOOLEAN IS
   BEGIN
     EXECUTE IMMEDIATE p_sql;
     DBMS_OUTPUT.PUT_LINE('  지움: ' || p_sql);
+    RETURN TRUE;
   EXCEPTION
     WHEN OTHERS THEN
-      -- 없는 것을 지우려 한 경우가 대부분이다. 처음부터 다시 돌릴 수 있어야 하므로
-      -- 실패를 멈춤 사유로 보지 않는다.
-      DBMS_OUTPUT.PUT_LINE('  건너뜀: ' || p_sql || '  (' || SQLCODE || ')');
+      DBMS_OUTPUT.PUT_LINE('  [실패] ' || p_sql || ' : ' || SQLERRM);
+      RETURN FALSE;
+  END try_b;
+
+  PROCEDURE try(p_sql IN VARCHAR2) IS
+    v_dummy BOOLEAN;
+  BEGIN
+    v_dummy := try_b(p_sql);
   END try;
+
+  -- 계정을 지운다. 접속 중인 세션이 있으면 지워지지 않으므로(ORA-01940) 먼저 계정을
+  -- 잠가 새 접속을 막고, 접속 중인 세션을 끊은 뒤 지운다. 키 저장소 유지 프로그램이
+  -- 이 계정으로 계속 다시 접속하는 경우에도 잠겨 있으므로 접속하지 못한다.
+  PROCEDURE drop_user(p_user IN VARCHAR2) IS
+    v_n  NUMBER;
+    v_ok BOOLEAN := FALSE;
+  BEGIN
+    SELECT COUNT(*) INTO v_n FROM dba_users WHERE username = p_user;
+    IF v_n = 0 THEN
+      DBMS_OUTPUT.PUT_LINE('  없음: ' || p_user);
+      RETURN;
+    END IF;
+
+    try('ALTER USER ' || p_user || ' ACCOUNT LOCK');
+    FOR attempt IN 1 .. 3 LOOP
+      FOR s IN (SELECT sid, serial# FROM v$session WHERE username = p_user) LOOP
+        try('ALTER SYSTEM KILL SESSION ''' || s.sid || ',' || s.serial# || ''' IMMEDIATE');
+      END LOOP;
+      DBMS_SESSION.SLEEP(2);
+      v_ok := try_b('DROP USER ' || p_user || ' CASCADE');
+      EXIT WHEN v_ok;
+    END LOOP;
+  END drop_user;
 BEGIN
   IF v_ok <> 'DROP' THEN
     DBMS_OUTPUT.PUT_LINE('취소하였다. 아무것도 지우지 않았다.');
@@ -51,9 +83,18 @@ BEGIN
   -- 업무 계정(응용 스키마)의 예시 객체와 실제 업무 객체는 건드리지 않는다. 예시는
   -- 해당 계정에서 08_sample/890_drop_samples.sql 로 지운다.
 
+  -- 통합 감사 정책(310_lockdown.sql 이 만든 것). 정책은 계정과 별개로 남으므로 계정보다
+  -- 먼저 끄고 지운다. 남겨 두면 다시 설치할 때 310 이 「이미 있다」로 실패한다.
+  FOR p IN (SELECT DISTINCT policy_name FROM audit_unified_policies
+             WHERE policy_name LIKE 'OCS\_POL\_%' ESCAPE '\') LOOP
+    try('NOAUDIT POLICY ' || p.policy_name);
+    try('DROP AUDIT POLICY ' || p.policy_name);
+  END LOOP;
+
   -- 문맥은 계정보다 먼저 지운다.
-  try('DROP CONTEXT OCS_APP_CTX');
-  try('DROP CONTEXT OCS_KEK_CTX');
+  FOR c IN (SELECT namespace FROM dba_context WHERE namespace LIKE 'OCS\_%' ESCAPE '\') LOOP
+    try('DROP CONTEXT ' || c.namespace);
+  END LOOP;
 
   -- 다른 스키마에 만든 FN_ 시노님(480_connect_app_schema.sql)은 대상이 사라지면 깨진 채
   -- 남으므로 먼저 지운다.
@@ -66,14 +107,15 @@ BEGIN
     END IF;
   END LOOP;
 
-  -- 계정을 통째로 지우면 그 안의 표와 패키지와 키가 함께 사라진다.
-  try('DROP USER OCS_OWNER CASCADE');
-  try('DROP USER OCS_KEYADM CASCADE');
-  try('DROP USER OCS_AUDITOR CASCADE');
+  -- 계정을 통째로 지우면 그 안의 표(SEC_CONFIG 등)와 패키지와 키가 함께 사라진다.
+  drop_user('OCS_OWNER');
+  drop_user('OCS_KEYADM');
+  drop_user('OCS_AUDITOR');
 
-  try('DROP ROLE OCS_ROLE_APP');
-  try('DROP ROLE OCS_ROLE_KEYADM');
-  try('DROP ROLE OCS_ROLE_AUDITOR');
+  FOR r IN (SELECT role FROM dba_roles WHERE role IN
+              ('OCS_ROLE_APP', 'OCS_ROLE_KEYADM', 'OCS_ROLE_AUDITOR')) LOOP
+    try('DROP ROLE ' || r.role);
+  END LOOP;
 
   DBMS_OUTPUT.PUT_LINE('');
   DBMS_OUTPUT.PUT_LINE('제거를 마쳤다. 아래 조회가 모두 비어 있어야 한다.');
@@ -95,6 +137,20 @@ PROMPT === 남은 문맥 (비어 있어야 정상) ===
 SELECT namespace FROM dba_context WHERE namespace LIKE 'OCS%';
 
 PROMPT
-PROMPT 셋 다 비어 있으면 설치 전 상태다. 설치 매뉴얼 제3장부터 다시 시작하면 된다.
+PROMPT === 남은 통합 감사 정책 (비어 있어야 정상) ===
+SELECT DISTINCT policy_name FROM audit_unified_policies WHERE policy_name LIKE 'OCS%';
+
+PROMPT
+PROMPT === 남은 시노님 (비어 있어야 정상) ===
+SELECT owner, synonym_name FROM dba_synonyms WHERE table_owner = 'OCS_OWNER';
+
+PROMPT
+PROMPT 위 다섯 조회가 모두 비어 있으면 설치 전 상태다. 위쪽에 [실패] 가 있으면 그 이유를
+PROMPT 먼저 풀고 이 스크립트를 다시 실행한다. 다시 실행해도 안전하다.
+PROMPT
+PROMPT 데이터베이스 밖에 남는 것은 이 스크립트가 지우지 않는다. 키 저장소 유지 프로그램
+PROMPT (작업 스케줄러 작업이나 systemd 서비스)과 keeper.properties 의 마스터 키는 재설치
+PROMPT 전에 따로 멈추거나 새 설치에 맞게 고친다. 업무 계정 쪽의 예시 객체는 08_sample/
+PROMPT 890_drop_samples.sql 로 지운다. 설치 매뉴얼 제3장부터 다시 시작하면 된다.
 
 SET FEEDBACK ON
