@@ -2,7 +2,7 @@
 """설치 매뉴얼이 언급하는 파일 경로가 패키지 안에 실제로 있는지 대조한다.
 
   python tools/check_manual_paths.py <패키지 폴더>
-  python tools/check_manual_paths.py            (저장소의 docs/80 을 저장소 기준으로)
+  python tools/check_manual_paths.py            (저장소의 docs/설치/설치_매뉴얼.md 을 저장소 기준으로)
 
 매뉴얼 본문에서 sql/ sql_cp949/ java/ tools/ 로 시작하는 경로를 찾아 존재 여부를
 본다. 매뉴얼이 담지 않는 문서(docs/, internal/)를 가리키는 문구도 찾아낸다.
@@ -26,7 +26,7 @@ def main():
         manual = os.path.join(base, '설치_매뉴얼.md')
     else:
         base = ROOT
-        manual = os.path.join(ROOT, 'docs', '80_설치_매뉴얼.md')
+        manual = os.path.join(ROOT, 'docs', '설치', '설치_매뉴얼.md')
     if not os.path.exists(manual):
         print('매뉴얼을 찾을 수 없다: ' + manual)
         return 2

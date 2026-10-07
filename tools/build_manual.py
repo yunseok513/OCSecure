@@ -4,8 +4,8 @@
 윈도우 편과 RHEL 편이 같은 순서와 같은 SQL 절차를 가지므로, 한 원본에서 두 편을
 만들어 한 파일에 담는다. 두 편을 손으로 따로 고치다가 어긋나는 것을 막기 위해서다.
 
-  원본   docs/80_설치_매뉴얼.tmpl.md
-  결과   docs/80_설치_매뉴얼.md        (직접 고치지 않는다. 원본을 고치고 다시 만든다)
+  원본   docs/설치/설치_매뉴얼.tmpl.md
+  결과   docs/설치/설치_매뉴얼.md        (직접 고치지 않는다. 원본을 고치고 다시 만든다)
 
   python tools/build_manual.py           결과를 다시 만든다
   python tools/build_manual.py --check   결과가 원본과 맞는지만 본다 (다르면 종료 코드 1)
@@ -23,8 +23,8 @@ import re
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-TMPL = os.path.join(ROOT, 'docs', '80_설치_매뉴얼.tmpl.md')
-OUT = os.path.join(ROOT, 'docs', '80_설치_매뉴얼.md')
+TMPL = os.path.join(ROOT, 'docs', '설치', '설치_매뉴얼.tmpl.md')
+OUT = os.path.join(ROOT, 'docs', '설치', '설치_매뉴얼.md')
 
 OSES = [
     ('win', 'win', 3, 4, '윈도우 편'),

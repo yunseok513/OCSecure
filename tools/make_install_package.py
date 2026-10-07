@@ -8,7 +8,7 @@
 
   python tools/make_install_package.py
   python tools/make_install_package.py --no-zip
-  python tools/make_install_package.py --with-ops-docs   # 관리자·개발자 매뉴얼도 담음
+  python tools/make_install_package.py --with-ops-docs   # 유지보수·개발자 매뉴얼도 담음
 
 만든 뒤에는 packages 안의 매뉴얼이 언급하는 경로가 실제로 있는지를
 tools/check_manual_paths.py 로 대조한다.
@@ -27,7 +27,7 @@ import to_cp949   # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-MANUAL_SRC = os.path.join('docs', '80_설치_매뉴얼.md')
+MANUAL_SRC = os.path.join('docs', '설치', '설치_매뉴얼.md')
 MANUAL_DST = '설치_매뉴얼.md'
 
 # 담을 디렉터리(통째로). 이 안의 파일은 모두 설치에 쓰인다.
@@ -58,10 +58,10 @@ COPY_FILES = [
 
 # 선택으로 담는 문서 (--with-ops-docs). 원본 경로 -> 패키지 안 이름
 OPS_DOCS = {
-    os.path.join('docs', '60_비밀번호시스템_관리자설명서.md'): '관리자_매뉴얼.md',
-    os.path.join('docs', '61_비밀번호시스템_개발자설명서.md'): '개발자_매뉴얼.md',
-    os.path.join('docs', '62_오류_대응_매뉴얼.md'): '오류_대응_매뉴얼.md',
-    os.path.join('docs', '63_개발모드_빠른시작.md'): '개발모드_빠른시작.md',
+    os.path.join('docs', '유지보수', '유지보수_매뉴얼.md'): '유지보수_매뉴얼.md',
+    os.path.join('docs', '개발자', '개발자_매뉴얼.md'): '개발자_매뉴얼.md',
+    os.path.join('docs', '유지보수', '오류_대응_매뉴얼.md'): '오류_대응_매뉴얼.md',
+    os.path.join('docs', '개발자', '개발모드_빠른시작.md'): '개발모드_빠른시작.md',
 }
 
 SKIP_NAMES = {'__pycache__', '.git', 'target', 'build'}
@@ -156,7 +156,7 @@ def main():
     ap.add_argument('--out', default='dist', help='만들 위치 (기본 dist)')
     ap.add_argument('--no-zip', action='store_true', help='압축 파일을 만들지 않는다')
     ap.add_argument('--with-ops-docs', action='store_true',
-                    help='관리자·개발자·오류 대응 매뉴얼도 담는다')
+                    help='유지보수·개발자 매뉴얼과 오류 대응, 개발 모드 안내도 담는다')
     args = ap.parse_args()
 
     stamp = datetime.datetime.now().strftime('%Y%m%d')

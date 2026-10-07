@@ -20,7 +20,7 @@ where python >nul 2>&1
 if %errorlevel%==0 goto use_python
 
 echo Python not found. Install Python 3 and make sure "py" or "python" is on PATH.
-echo See docs/70 for details.
+echo See docs/저장소/빌드_및_시험_설명서.md for details.
 exit /b 1
 
 :use_py
