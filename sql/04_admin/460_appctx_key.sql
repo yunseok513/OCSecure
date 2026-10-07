@@ -27,6 +27,11 @@ SET VERIFY OFF
 
 -- 기본은 입력을 가린다. 붙여 넣기가 되지 않는 환경에서는 N 대신 Y 를 골라 보이게 입력한다.
 -- 보이게 입력하면 키가 화면과 스크롤백에 남으므로 개발·시험에서만 쓴다.
+-- 보조 스크립트를 못 찾아 입력이 정의되지 않으면 SQL*Plus 가 값을 계속 되묻는다.
+-- 미리 빈 값으로 정의해 두어, 그런 경우에도 되묻지 않고 입력 점검에서 멈추게 한다.
+DEFINE k_enc = ''
+DEFINE k_mac = ''
+DEFINE k_idx = ''
 ACCEPT show_in CHAR PROMPT '  입력을 화면에 보이게 할까요? (Y/N, 엔터=N): ' DEFAULT 'N'
 COLUMN input_script NEW_VALUE input_script NOPRINT
 SELECT CASE WHEN UPPER(TRIM('&show_in')) = 'Y' THEN '460_input_show.sql'
