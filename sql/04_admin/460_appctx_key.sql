@@ -40,13 +40,17 @@ DECLARE
   v_bad PLS_INTEGER := 0;
   PROCEDURE chk(p_label VARCHAR2, p_val VARCHAR2) IS
     v_ok BOOLEAN := REGEXP_LIKE(p_val, '^[0-9A-Fa-f]{64}$');
+    v_fp VARCHAR2(8);
   BEGIN
-    DBMS_OUTPUT.PUT_LINE('  ' || p_label || ': ' || LENGTH(p_val) || '자, '
-      || CASE WHEN v_ok
-           THEN '형식 정상, 지문 '
-                || LOWER(SUBSTR(RAWTOHEX(STANDARD_HASH(HEXTORAW(p_val), 'SHA256')), 1, 8))
-           ELSE '형식 오류 (16진 64자가 아니다)' END);
-    IF NOT v_ok THEN v_bad := v_bad + 1; END IF;
+    IF v_ok THEN
+      -- STANDARD_HASH 는 SQL 함수여서 PL/SQL 식에서는 쓸 수 없다.
+      SELECT LOWER(SUBSTR(RAWTOHEX(STANDARD_HASH(HEXTORAW(p_val), 'SHA256')), 1, 8))
+        INTO v_fp FROM DUAL;
+      DBMS_OUTPUT.PUT_LINE('  ' || p_label || ': ' || LENGTH(p_val) || '자, 형식 정상, 지문 ' || v_fp);
+    ELSE
+      DBMS_OUTPUT.PUT_LINE('  ' || p_label || ': ' || LENGTH(p_val) || '자, 형식 오류 (16진 64자가 아니다)');
+      v_bad := v_bad + 1;
+    END IF;
   END;
 BEGIN
   chk('예비 키 1', '&k_enc');
