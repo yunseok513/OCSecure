@@ -46,9 +46,9 @@ DECLARE
       -- STANDARD_HASH 는 SQL 함수여서 PL/SQL 식에서는 쓸 수 없다.
       SELECT LOWER(SUBSTR(RAWTOHEX(STANDARD_HASH(HEXTORAW(p_val), 'SHA256')), 1, 8))
         INTO v_fp FROM DUAL;
-      DBMS_OUTPUT.PUT_LINE('  ' || p_label || ': ' || LENGTH(p_val) || '자, 형식 정상, 지문 ' || v_fp);
+      DBMS_OUTPUT.PUT_LINE('  ' || p_label || ': ' || NVL(LENGTH(p_val), 0) || '자, 형식 정상, 지문 ' || v_fp);
     ELSE
-      DBMS_OUTPUT.PUT_LINE('  ' || p_label || ': ' || LENGTH(p_val) || '자, 형식 오류 (16진 64자가 아니다)');
+      DBMS_OUTPUT.PUT_LINE('  ' || p_label || ': ' || NVL(LENGTH(p_val), 0) || '자, 형식 오류 (16진 64자가 아니다)');
       v_bad := v_bad + 1;
     END IF;
   END;
