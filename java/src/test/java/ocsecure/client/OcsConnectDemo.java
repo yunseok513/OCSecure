@@ -51,6 +51,16 @@ public final class OcsConnectDemo {
 
     private static final String RRN = "8001011234567";
 
+    /** 키의 SHA-256 앞 4바이트를 16진으로 돌려준다. 키를 되살릴 수 없고 같은 키인지 견주는 데 쓴다. */
+    private static String fingerprint(byte[] key) throws Exception {
+        byte[] d = java.security.MessageDigest.getInstance("SHA-256").digest(key);
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < 4; i++) {
+            sb.append(String.format("%02x", d[i] & 0xff));
+        }
+        return sb.toString();
+    }
+
     /** 값이 하이픈이면 화면에 보이지 않게 입력받고, 아니면 그대로 쓴다. */
     private static String secret(String arg, String prompt) throws Exception {
         if (!"-".equals(arg)) {
@@ -71,7 +81,16 @@ public final class OcsConnectDemo {
         String url = args[0];
         String user = args[1];
         String pwd = secret(args[2], "응용 계정 암호: ");
-        byte[] appCtxKey = OcsCrypto.fromHex(secret(args[3], "증표 키(16진 64자): "));
+        System.out.println("암호: " + pwd.length() + "자 입력됨");
+        String keyHex = secret(args[3], "증표 키(16진 64자): ").trim();
+        if (!keyHex.matches("[0-9A-Fa-f]{64}")) {
+            System.out.println("증표 키가 올바르지 않다. 16진 64자여야 한다. 입력된 길이: " + keyHex.length() + "자");
+            System.out.println("앞뒤 공백이나 줄바꿈이 섞였는지, 세 번째 값을 넣었는지 확인할 것.");
+            System.exit(2);
+        }
+        byte[] appCtxKey = OcsCrypto.fromHex(keyHex);
+        System.out.println("증표 키: 64자 확인, 지문 " + fingerprint(appCtxKey)
+            + " (키를 만들 때 찍힌 지문과 같아야 한다)");
         boolean dataMode = false;
         boolean keepData = false;
         boolean readOnly = false;
