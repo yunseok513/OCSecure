@@ -146,7 +146,9 @@ def java_sources():
 
 
 def check_manual():
-    title('5. 설치 매뉴얼이 원본과 맞는지')
+    title('5. 매뉴얼 목차와 설치 매뉴얼 원본')
+    if run([sys.executable, '-I', os.path.join('tools', 'make_toc.py'), '--check']) != 0:
+        failed.append('매뉴얼 목차')
     if run([sys.executable, '-I', os.path.join('tools', 'build_manual.py'), '--check']) != 0:
         failed.append('설치 매뉴얼 원본 대조')
     if run([sys.executable, '-I', os.path.join('tools', 'check_manual_paths.py')]) != 0:

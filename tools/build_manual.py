@@ -22,6 +22,9 @@ import os
 import re
 import sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import toc
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TMPL = os.path.join(ROOT, 'docs', '설치', '설치_매뉴얼.tmpl.md')
 OUT = os.path.join(ROOT, 'docs', '설치', '설치_매뉴얼.md')
@@ -100,7 +103,7 @@ def build():
         parts.append('## %d. %s — 설치 진행\n\n%s' % (I, name, render_os(install, key, I, V).strip('\n') + '\n'))
         parts.append('## %d. %s — 설치 후 확인\n\n%s' % (V, name, render_os(verify, key, I, V).strip('\n') + '\n'))
     parts.append(render_shared(ref).strip('\n') + '\n')
-    return '\n'.join(parts)
+    return toc.apply('\n'.join(parts))
 
 
 def main():

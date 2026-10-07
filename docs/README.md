@@ -26,3 +26,7 @@
 ## 설치 매뉴얼을 고칠 때
 
 `설치/설치_매뉴얼.md` 는 직접 고치지 않습니다. 원본 `설치/설치_매뉴얼.tmpl.md` 를 고치고 `python tools/build_manual.py` 로 다시 만듭니다. 윈도우 편과 RHEL 편의 공통 절차를 한 원본에서 만들어 서로 어긋나지 않게 하려는 방식이며, 점검(`python tools/run_checks.py`)이 결과가 원본과 맞는지 확인합니다.
+
+## 목차를 고칠 때
+
+각 매뉴얼의 목차(제목 바로 아래)는 `python tools/make_toc.py` 가 제목에서 만든 것이므로 직접 고치지 않습니다. 제목을 바꾸었으면 이 명령으로 다시 만듭니다. 설치 매뉴얼의 목차는 `build_manual.py` 가 함께 만듭니다. 점검(`python tools/run_checks.py`)이 목차가 제목과 맞는지 확인합니다.
