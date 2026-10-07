@@ -155,7 +155,7 @@ def main():
     ap.add_argument('--out', default='dist', help='만들 위치 (기본 dist)')
     ap.add_argument('--no-zip', action='store_true', help='압축 파일을 만들지 않는다')
     ap.add_argument('--with-ops-docs', action='store_true',
-                    help='관리자 매뉴얼과 개발자 매뉴얼도 담는다')
+                    help='관리자·개발자·오류 대응 매뉴얼도 담는다')
     args = ap.parse_args()
 
     stamp = datetime.datetime.now().strftime('%Y%m%d')
