@@ -16,6 +16,7 @@
   8. 최상위 구문의 세미콜론 뒤에 주석을 같은 줄로 붙이지 않았는가
   9. 트리거의 조건 술어(UPDATING('컬럼') 등)를 SQL 문 안에서 쓰지 않았는가
  10. 한 파일에서 같은 패키지의 명세나 본문을 두 번 정의하지 않았는가
+ 11. 패키지 본문에서 변수와 상수 선언이 하위 프로그램 정의보다 앞에 있는가
 """
 
 import glob
@@ -189,6 +190,27 @@ def check_local_in_sql(path, public):
     return errs
 
 
+RE_TOP_SUB = re.compile(r'^  (FUNCTION|PROCEDURE)\s+[A-Z0-9_]+', re.IGNORECASE)
+RE_TOP_DECL = re.compile(
+    r'^  ([A-Z][A-Z0-9_]*)\s+(?:CONSTANT\s+)?'
+    r'(?:VARCHAR2|NUMBER|RAW|PLS_INTEGER|BINARY_INTEGER|BOOLEAN|DATE|TIMESTAMP|INTEGER|'
+    r'CLOB|BLOB|T_[A-Z0-9_]+)\b[^;]*;', re.IGNORECASE)
+
+
+def check_decl_order(unit, name, fname):
+    """패키지 본문에서 변수나 상수 선언이 하위 프로그램보다 뒤에 오면 PLS-00103 이 난다."""
+    errs = []
+    seen_sub = False
+    for no, line in enumerate(unit.splitlines(), 1):
+        if RE_TOP_SUB.match(line):
+            seen_sub = True
+        elif seen_sub and RE_TOP_DECL.match(line):
+            errs.append('%s: 패키지 %s 본문에서 선언(%s)이 하위 프로그램 뒤에 있다. '
+                        '변수와 상수는 하위 프로그램보다 앞에 둘 것'
+                        % (fname, name, line.strip().split()[0]))
+    return errs
+
+
 def check_trailing_comment(path):
     """최상위 구문의 세미콜론 뒤에 붙인 주석을 찾는다."""
     errs = []
@@ -216,6 +238,8 @@ def check_file(path):
             errs.append('%s: 패키지 %s 의 %s 가 한 파일에 두 번 정의되었다'
                         % (os.path.basename(path), name, '본문' if is_body else '명세'))
         (bodies if is_body else specs)[name] = subs
+        if is_body:
+            errs.extend(check_decl_order(unit, name, os.path.basename(path)))
 
         ends = [e.group(1).upper() for e in RE_END.finditer(unit)]
         if not ends or ends[-1] != name:

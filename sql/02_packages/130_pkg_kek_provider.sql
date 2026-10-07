@@ -62,6 +62,8 @@ CREATE OR REPLACE PACKAGE BODY PKG_KEK_PROVIDER AS
   g_ctx VARCHAR2(200);
   -- SCOPED_CTX 의 토큰을 한 번 읽어 담아 둔다. 바뀌지 않는 값이며 이 패키지의 사설 변수에만 머문다.
   g_tok VARCHAR2(200);
+  -- 전역 문맥의 이름. 변수와 상수는 하위 프로그램보다 앞에 선언해야 한다.
+  c_ns CONSTANT VARCHAR2(30) := 'OCS_KEK_CTX';
 
   FUNCTION cfg(p_key VARCHAR2, p_default VARCHAR2) RETURN VARCHAR2 IS
     v VARCHAR2(200);
@@ -81,8 +83,6 @@ CREATE OR REPLACE PACKAGE BODY PKG_KEK_PROVIDER AS
       '외부 키 반입이 구현되지 않았다. PKG_KEK_PROVIDER.load_from_external 을 구현할 것');
     RETURN NULL;
   END load_from_external;
-
-  c_ns CONSTANT VARCHAR2(30) := 'OCS_KEK_CTX';
 
   FUNCTION is_ctx_src(p_src VARCHAR2) RETURN BOOLEAN IS
   BEGIN
