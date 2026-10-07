@@ -1,7 +1,9 @@
 -- OCSecure 계정과 역할 생성
 -- SYS 또는 그에 준하는 권한으로 실행한다.
 --
--- 보안관리 설계서 제5절의 네 종 계정 구조를 그대로 옮긴 것이다.
+-- 보안관리 설계서 제5절의 계정 구조에서 암호 모듈 쪽 세 계정과 세 역할을 만든다.
+-- 응용 계정은 만들지 않는다. 이미 있는 업무 계정을 03_grants 다음에
+-- 04_admin/480_connect_app_schema.sql 로 연결한다.
 -- 비밀번호는 여기에 두지 않는다. 설치 시 치환 변수로 입력받는다.
 
 -- 치환 결과(old/new 줄)에 비밀번호가 찍히지 않도록 끈다. 입력은 HIDE 로 가린다.
@@ -11,7 +13,6 @@ SET DEFINE ON
 ACCEPT sec_owner_pwd    CHAR PROMPT '암호 모듈 소유 계정(OCS_OWNER) 비밀번호: '   HIDE
 ACCEPT key_admin_pwd    CHAR PROMPT '키 관리 계정(OCS_KEYADM) 비밀번호: '        HIDE
 ACCEPT auditor_pwd      CHAR PROMPT '감사 계정(OCS_AUDITOR) 비밀번호: '          HIDE
-ACCEPT app_user_pwd     CHAR PROMPT '응용 계정(OCS_APP) 비밀번호: '              HIDE
 
 -- 1. 암호 모듈 소유 계정 -----------------------------------------------------
 -- 모든 암호 패키지와 키 메타데이터를 소유한다. 평상시 잠금 상태로 둔다.
@@ -41,16 +42,14 @@ CREATE USER OCS_AUDITOR IDENTIFIED BY "&auditor_pwd";
 GRANT CREATE SESSION TO OCS_AUDITOR;
 
 -- 4. 응용 계정 --------------------------------------------------------------
--- 애플리케이션이 사용한다. 최상위 인터페이스 패키지만 실행할 수 있다.
-CREATE USER OCS_APP IDENTIFIED BY "&app_user_pwd"
-  DEFAULT TABLESPACE USERS QUOTA UNLIMITED ON USERS;
-GRANT CREATE SESSION TO OCS_APP;
--- 표와 뷰와 트리거를 만드는 권한은 여기서 주지 않는다. 예시(08_sample)를 돌려 볼 때
--- 설치 매뉴얼 제4.3.1절에서 잠시 주고, 끝나면 제4.6.2절에서 거둔다.
+-- 만들지 않는다. 응용은 이미 있는 업무 계정을 쓰며, 그 계정에는 암호 모듈을 쓰는
+-- 데 필요한 권한만 04_admin/480_connect_app_schema.sql 로 연결한다. 업무 계정의
+-- 비밀번호와 기존 권한과 quota 는 건드리지 않는다.
 
 -- 역할 -----------------------------------------------------------------------
 -- 권한을 계정에 직접 주지 않고 역할을 거치게 하여, 권한 현황 점검을 쉽게 한다.
 -- OCS_ROLE_APP 은 암호화와 색인 생성, 그리고 정책이 허용하는 범위의 복호화를 맡는다.
+-- 업무 계정에는 480_connect_app_schema.sql 이 이 역할을 준다.
 -- OCS_ROLE_KEYADM 은 키 생성과 활성과 폐기를 맡는다.
 -- OCS_ROLE_AUDITOR 는 감사 로그 조회만 한다.
 --
@@ -61,7 +60,6 @@ CREATE ROLE OCS_ROLE_APP;
 CREATE ROLE OCS_ROLE_KEYADM;
 CREATE ROLE OCS_ROLE_AUDITOR;
 
-GRANT OCS_ROLE_APP     TO OCS_APP;
 GRANT OCS_ROLE_KEYADM  TO OCS_KEYADM;
 GRANT OCS_ROLE_AUDITOR TO OCS_AUDITOR;
 
@@ -96,8 +94,7 @@ PROMPT === 빠진 계정 (없어야 정상) ===
 SELECT r.u AS 없는_계정
   FROM (SELECT 'OCS_OWNER' AS u FROM dual
         UNION ALL SELECT 'OCS_KEYADM' FROM dual
-        UNION ALL SELECT 'OCS_AUDITOR' FROM dual
-        UNION ALL SELECT 'OCS_APP' FROM dual) r
+        UNION ALL SELECT 'OCS_AUDITOR' FROM dual) r
  WHERE NOT EXISTS (SELECT 1 FROM dba_users u WHERE u.username = r.u);
 
 PROMPT === 빠진 역할과 문맥 (없어야 정상) ===
@@ -113,4 +110,4 @@ SELECT r.n AS 없는_문맥
  WHERE NOT EXISTS (SELECT 1 FROM dba_context c WHERE c.namespace = r.n);
 
 -- 입력받은 비밀번호 변수를 지운다.
-UNDEFINE sec_owner_pwd key_admin_pwd auditor_pwd app_user_pwd
+UNDEFINE sec_owner_pwd key_admin_pwd auditor_pwd

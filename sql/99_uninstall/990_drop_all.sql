@@ -12,8 +12,8 @@
 --
 -- SYS 또는 그에 준하는 권한으로 실행한다. 대상 컨테이너가 맞는지 먼저 확인할 것.
 --
--- 업무 스키마의 표는 지우지 않는다. 08_sample 로 만든 예시 표는 제거 대상에
--- 포함되나, 실제 업무 표는 사람이 판단해야 할 일이므로 건드리지 않는다.
+-- 업무 계정(응용 스키마)은 지우지 않으며 그 안의 표와 예시 객체도 건드리지 않는다.
+-- 예시는 그 계정에서 08_sample/890_drop_samples.sql 로 지운다.
 
 SET SERVEROUTPUT ON SIZE 100000
 SET FEEDBACK OFF
@@ -48,18 +48,17 @@ BEGIN
     RETURN;
   END IF;
 
-  -- 예시 스키마의 표와 뷰. 실제 업무 표는 건드리지 않는다.
-  try('DROP TABLE OCS_APP.TB_MEMBER_ENC CASCADE CONSTRAINTS PURGE');
-  try('DROP VIEW  OCS_APP.TB_MEMBER');
+  -- 업무 계정(응용 스키마)의 예시 객체와 실제 업무 객체는 건드리지 않는다. 예시는
+  -- 해당 계정에서 08_sample/890_drop_samples.sql 로 지운다.
 
   -- 문맥은 계정보다 먼저 지운다.
   try('DROP CONTEXT OCS_APP_CTX');
   try('DROP CONTEXT OCS_KEK_CTX');
 
-  -- 다른 스키마에 만든 FN_ 시노님(480_app_synonyms.sql)은 대상이 사라지면 깨진 채
-  -- 남으므로 먼저 지운다. OCS_APP 의 것은 계정과 함께 사라진다.
+  -- 다른 스키마에 만든 FN_ 시노님(480_connect_app_schema.sql)은 대상이 사라지면 깨진 채
+  -- 남으므로 먼저 지운다.
   FOR s IN (SELECT owner, synonym_name FROM dba_synonyms
-             WHERE table_owner = 'OCS_OWNER' AND owner <> 'OCS_APP') LOOP
+             WHERE table_owner = 'OCS_OWNER' AND owner <> 'OCS_OWNER') LOOP
     IF s.owner = 'PUBLIC' THEN
       try('DROP PUBLIC SYNONYM ' || s.synonym_name);
     ELSE
@@ -71,7 +70,6 @@ BEGIN
   try('DROP USER OCS_OWNER CASCADE');
   try('DROP USER OCS_KEYADM CASCADE');
   try('DROP USER OCS_AUDITOR CASCADE');
-  try('DROP USER OCS_APP CASCADE');
 
   try('DROP ROLE OCS_ROLE_APP');
   try('DROP ROLE OCS_ROLE_KEYADM');

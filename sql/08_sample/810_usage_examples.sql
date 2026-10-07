@@ -1,5 +1,5 @@
 -- 암호화 적용 예시 모음
--- OCS_APP 계정으로 실행한다.
+-- 업무 계정(응용 스키마)으로 실행한다.
 --
 -- 이 파일은 셋을 한자리에서 보이려고 만들었다.
 --   제1장  암호화 테이블과 투명화 뷰와 트리거를 만드는 예시
@@ -13,7 +13,7 @@
 -- 있어야 하며(설치 매뉴얼 제3.8절과 제3.9절), 응용 계정에 표와 뷰와 트리거와 프로시저를
 -- 만들 권한이 있어야 한다.
 --
---   GRANT CREATE TABLE, CREATE VIEW, CREATE TRIGGER, CREATE PROCEDURE TO OCS_APP;
+--   GRANT CREATE TABLE, CREATE VIEW, CREATE TRIGGER, CREATE PROCEDURE TO <응용 스키마>;
 --
 -- 어디까지 조회 도구로 돌려 볼 수 있는지 미리 밝혀 둔다.
 --
@@ -58,6 +58,7 @@ CREATE TABLE TB_STAFF_ENC (
   upd_dt        DATE DEFAULT SYSDATE,
   CONSTRAINT pk_tb_staff_enc PRIMARY KEY (staff_id)
 );
+COMMENT ON TABLE TB_STAFF_ENC IS 'OCSecure sample';
 
 -- 인덱스는 색인 컬럼과 평문 컬럼에만 만든다. 암호문 컬럼에 만들어도 쓰이지 않는다.
 -- 같은 평문이 매번 다른 암호문이 되므로 비교가 성립하지 않기 때문이다.
@@ -94,6 +95,7 @@ SELECT staff_id,
        rrn_idx,
        upd_dt
   FROM TB_STAFF_ENC;
+COMMENT ON TABLE TB_STAFF IS 'OCSecure sample';
 
 
 -- 1.3 삽입과 수정과 삭제 트리거 -------------------------------------------------

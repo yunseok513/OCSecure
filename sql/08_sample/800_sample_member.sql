@@ -1,5 +1,7 @@
 -- 투명화 적용 예시
--- OCS_APP 계정으로 실행한다.
+-- 업무 계정(응용 스키마)으로 실행한다. 이름이 겹치는 객체가 이미 있으면 실행하지
+-- 않는다(설치 매뉴얼의 사전 확인). 만든 표와 뷰에는 표시를 달아 890 이 이 예시만
+-- 지우도록 한다.
 --
 -- 기존 애플리케이션의 수정 범위를 줄이기 위해, 실제 테이블의 이름을 바꾸고 원래
 -- 이름으로 뷰를 만든다. 조회 구문은 손대지 않아도 동작한다.
@@ -30,6 +32,8 @@ CREATE TABLE TB_MEMBER_ENC (
   CONSTRAINT pk_tb_member_enc PRIMARY KEY (mbr_id)
 );
 
+COMMENT ON TABLE TB_MEMBER_ENC IS 'OCSecure sample';
+
 -- 색인 컬럼에만 인덱스를 만든다. 암호문 컬럼은 인덱스를 만들어도 쓸 수 없다.
 CREATE UNIQUE INDEX ux_tb_member_rrn ON TB_MEMBER_ENC (mbr_rrn_idx);
 CREATE INDEX        ix_tb_member_name ON TB_MEMBER_ENC (mbr_name_idx);
@@ -48,6 +52,8 @@ SELECT mbr_id,
        mbr_pwd,
        join_dt
   FROM TB_MEMBER_ENC;
+
+COMMENT ON TABLE TB_MEMBER IS 'OCSecure sample';
 
 -- 3. 삽입과 수정 -----------------------------------------------------------------
 -- 애플리케이션은 평문을 넣고, 트리거가 암호화와 색인 생성을 대신한다.

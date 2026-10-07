@@ -8,9 +8,9 @@
 
 -- 응용 계정 -------------------------------------------------------------------
 GRANT EXECUTE ON PKG_SECURE_API TO OCS_ROLE_APP;
--- 뷰 정의에서 참조하는 객체의 권한은 역할로는 인정되지 않으므로 직접 부여한다.
--- 투명화 뷰를 응용 스키마에 만들려면 이 부여가 필요하다.
-GRANT EXECUTE ON PKG_SECURE_API TO OCS_APP;
+-- 응용(업무) 계정에는 여기서 직접 주지 않는다. 뷰나 저장 프로시저 안에서 쓰려면
+-- 역할이 아니라 계정에 직접 주어야 하므로, 그 부여와 시노님은
+-- 04_admin/480_connect_app_schema.sql 이 업무 계정마다 한다.
 
 -- 짧은 함수 이름(FN_ 으로 시작하는 단독 함수, 220_fn_wrappers.sql)에도 같은 원칙을
 -- 적용한다. 이 함수들은 PKG_SECURE_API 를 부를 뿐이므로 통제는 달라지지 않는다.
@@ -19,7 +19,6 @@ BEGIN
   FOR f IN (SELECT object_name FROM user_objects
              WHERE object_type = 'FUNCTION' AND object_name LIKE 'FN\_%' ESCAPE '\') LOOP
     EXECUTE IMMEDIATE 'GRANT EXECUTE ON ' || f.object_name || ' TO OCS_ROLE_APP';
-    EXECUTE IMMEDIATE 'GRANT EXECUTE ON ' || f.object_name || ' TO OCS_APP';
   END LOOP;
 END;
 /

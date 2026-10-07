@@ -45,17 +45,9 @@ BEGIN
    WHERE owner = 'OCS_OWNER' AND table_name = 'SEC_KAT';
   chk('시험용 표 SEC_KAT 제거', v_n = 0, v_n || '개 남아 있음');
 
-  SELECT COUNT(*) INTO v_n FROM dba_objects
-   WHERE owner = 'OCS_APP'
-     AND object_name IN ('TB_MEMBER_ENC', 'TB_MEMBER', 'TRG_TB_MEMBER_IOD',
-                         'TB_STAFF_ENC', 'TB_STAFF', 'TRG_TB_STAFF_IOD',
-                         'SP_STAFF_SET_PWD', 'FN_STAFF_LOGIN');
-  chk('예시 객체 제거', v_n = 0, v_n || '개 남아 있음');
-
-  SELECT COUNT(*) INTO v_n FROM dba_sys_privs
-   WHERE grantee = 'OCS_APP'
-     AND privilege IN ('CREATE TABLE', 'CREATE VIEW', 'CREATE TRIGGER', 'CREATE PROCEDURE');
-  chk('응용 계정의 객체 생성 권한 회수', v_n = 0, v_n || '개 남아 있음');
+  SELECT COUNT(*) INTO v_n FROM dba_tab_comments
+   WHERE comments = 'OCSecure sample' AND owner NOT IN ('SYS', 'SYSTEM');
+  chk('예시 표와 뷰 제거', v_n = 0, v_n || '개 남아 있음');
 
   IF v_fail > 0 THEN
     DBMS_OUTPUT.PUT_LINE('=== 운영 개통 불가: ' || v_fail || '개 항목 ===');

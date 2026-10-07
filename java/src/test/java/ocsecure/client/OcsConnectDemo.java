@@ -37,8 +37,8 @@ import java.sql.Types;
  * <pre>
  *   javac -cp ojdbc8.jar -d out $(find java/src -name '*.java')
  *   java  -cp out:ojdbc8.jar ocsecure.client.OcsConnectDemo \
- *         "jdbc:oracle:thin:@호스트:포트/서비스명" OCS_APP - -
- *   java  -cp out:ojdbc8.jar ocsecure.client.OcsConnectDemo ... OCS_APP - - --data
+ *         "jdbc:oracle:thin:@호스트:포트/서비스명" <응용계정> - -
+ *   java  -cp out:ojdbc8.jar ocsecure.client.OcsConnectDemo ... <응용계정> - - --data
  * </pre>
  *
  * <p>윈도우에서는 클래스패스 구분자가 쌍점이 아니라 쌍반점이다.

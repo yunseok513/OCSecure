@@ -11,8 +11,8 @@
 --   FN_ENC_RRN, FN_DEC_RRN, FN_MASK_RRN, FN_IDX_RRN, FN_PROTECT, FN_SHOW ...
 --
 -- 이 함수들은 OCS_OWNER 소유이므로 응용 스키마에서 이름만으로 쓰려면 실행 권한과
--- 시노님이 필요하다. 권한은 300_grants.sql 이 OCS_ROLE_APP 과 OCS_APP 에 주고,
--- 시노님은 04_admin/480_app_synonyms.sql 로 응용 스키마마다 만든다.
+-- 시노님이 필요하다. 권한은 300_grants.sql 이 OCS_ROLE_APP 에 주고, 업무 계정에 대한
+-- 직접 권한과 시노님은 04_admin/480_connect_app_schema.sql 이 업무 계정마다 만든다.
 --
 -- 호출마다 PL/SQL 호출이 한 번 더 들어가므로, 한 쿼리에서 많은 행에 부르는 곳은
 -- 필요한 행만 대상으로 줄여야 한다. 이 점은 패키지를 직접 부를 때와 같다.

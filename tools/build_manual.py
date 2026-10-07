@@ -30,7 +30,7 @@ OSES = [
     ('win', 'win', 3, 4, '윈도우 편'),
     ('rhel', 'rhel', 5, 6, 'RHEL 편'),
 ]
-URL = '"jdbc:oracle:thin:@<호스트>:<포트>/<서비스명>" OCS_APP - -'
+URL = '"jdbc:oracle:thin:@<호스트>:<포트>/<서비스명>" <응용계정> - -'
 
 
 def demo(os_key, opts):
