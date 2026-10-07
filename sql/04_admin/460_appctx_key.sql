@@ -25,9 +25,13 @@ SET DEFINE ON
 SET ECHO OFF
 SET VERIFY OFF
 
-ACCEPT k_enc CHAR PROMPT '  1) 예비 키 1 (16진 64자): ' HIDE
-ACCEPT k_mac CHAR PROMPT '  2) 예비 키 2 (16진 64자): ' HIDE
-ACCEPT k_idx CHAR PROMPT '  3) 증표용 키  (16진 64자): ' HIDE
+-- 기본은 입력을 가린다. 붙여 넣기가 되지 않는 환경에서는 N 대신 Y 를 골라 보이게 입력한다.
+-- 보이게 입력하면 키가 화면과 스크롤백에 남으므로 개발·시험에서만 쓴다.
+ACCEPT show_in CHAR PROMPT '  입력을 화면에 보이게 할까요? (Y/N, 엔터=N): ' DEFAULT 'N'
+COLUMN input_script NEW_VALUE input_script NOPRINT
+SELECT CASE WHEN UPPER(TRIM('&show_in')) = 'Y' THEN '460_input_show.sql'
+            ELSE '460_input_hide.sql' END AS input_script FROM DUAL;
+@@&input_script
 
 PROMPT
 PROMPT === 0. 입력 점검 (키 값은 표시하지 않는다) ===
@@ -114,6 +118,6 @@ PROMPT
 PROMPT 세 번째로 넣은 증표용 키를 애플리케이션 서버 설정에 넣을 것.
 PROMPT 데이터베이스 쪽에서는 이 값을 다시 꺼낼 수 없다.
 
-UNDEFINE k_enc k_mac k_idx
+UNDEFINE k_enc k_mac k_idx show_in input_script
 
 SET FEEDBACK ON

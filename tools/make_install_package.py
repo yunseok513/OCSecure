@@ -47,6 +47,8 @@ COPY_FILES = [
     os.path.join('sql', '04_admin', '401_pwd_iteration_dist.sql'),
     os.path.join('sql', '04_admin', '450_bootstrap_domains.sql'),
     os.path.join('sql', '04_admin', '460_appctx_key.sql'),
+    os.path.join('sql', '04_admin', '460_input_hide.sql'),
+    os.path.join('sql', '04_admin', '460_input_show.sql'),
     os.path.join('sql', '04_admin', '470_keystore_check.sql'),
     os.path.join('sql', '04_admin', '480_connect_app_schema.sql'),
     os.path.join('java', 'pom.xml'),
