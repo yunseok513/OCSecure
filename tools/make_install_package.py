@@ -64,7 +64,6 @@ OPS_DOCS = {
     os.path.join('docs', '유지보수', '유지보수_매뉴얼.md'): '유지보수_매뉴얼.md',
     os.path.join('docs', '개발자', '개발자_매뉴얼.md'): '개발자_매뉴얼.md',
     os.path.join('docs', '유지보수', '오류_대응_매뉴얼.md'): '오류_대응_매뉴얼.md',
-    os.path.join('docs', '개발자', '개발모드_빠른시작.md'): '개발모드_빠른시작.md',
 }
 
 SKIP_NAMES = {'__pycache__', '.git', 'target', 'build'}
