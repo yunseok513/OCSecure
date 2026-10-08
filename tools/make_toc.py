@@ -17,7 +17,6 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DOCS = [
     os.path.join('docs', '개발자', '개발자_매뉴얼.md'),
     os.path.join('docs', '유지보수', '유지보수_매뉴얼.md'),
-    os.path.join('docs', '유지보수', '오류_대응_매뉴얼.md'),
     os.path.join('docs', '저장소', '빌드_및_시험_설명서.md'),
 ]
 
