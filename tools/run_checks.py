@@ -134,6 +134,8 @@ def check_plsql():
     title('3. PL/SQL 정적 점검')
     if run([sys.executable, os.path.join('tools', 'lint_plsql.py')]) != 0:
         failed.append('PL/SQL 정적 점검')
+    if run([sys.executable, os.path.join('tools', 'lint_bat.py')]) != 0:
+        failed.append('배치 파일 정적 점검')
 
 
 def java_sources():
