@@ -66,7 +66,6 @@ CREATE UNIQUE INDEX ux_tb_staff_login ON TB_STAFF_ENC (login_id);
 CREATE UNIQUE INDEX ux_tb_staff_rrn   ON TB_STAFF_ENC (rrn_idx);
 CREATE        INDEX ix_tb_staff_nm    ON TB_STAFF_ENC (staff_nm_idx);
 
-COMMENT ON TABLE  TB_STAFF_ENC          IS '직원 (암호화 저장)';
 COMMENT ON COLUMN TB_STAFF_ENC.rrn_idx  IS '주민등록번호 검색용 색인. 열쇠를 넣은 해시라 되돌릴 수 없다';
 COMMENT ON COLUMN TB_STAFF_ENC.pwd_hash IS '비밀번호 저장값. PBKDF2-HMAC-SHA256';
 
