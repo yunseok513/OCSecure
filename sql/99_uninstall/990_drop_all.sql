@@ -163,6 +163,6 @@ PROMPT
 PROMPT 데이터베이스 밖에 남는 것은 이 스크립트가 지우지 않는다. 키 저장소 유지 프로그램
 PROMPT (작업 스케줄러 작업이나 systemd 서비스)과 keeper.properties 의 마스터 키는 재설치
 PROMPT 전에 따로 멈추거나 새 설치에 맞게 고친다. 업무 계정 쪽의 예시 객체는 08_sample/
-PROMPT 890_drop_samples.sql 로 지운다. 설치 매뉴얼 제3장부터 다시 시작하면 된다.
+PROMPT 890_drop_samples.sql 로 지운다. 설치 매뉴얼의 설치 진행 장(윈도우 개발·시험은 제3장, 운영은 제7장)부터 다시 시작하면 된다.
 
 SET FEEDBACK ON

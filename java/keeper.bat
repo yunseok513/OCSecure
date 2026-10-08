@@ -7,7 +7,7 @@ rem  the console code page, and this repository stores text as UTF-8, so Korean
 rem  text here would be unreadable on a KO16MSWIN949 console. The Java program
 rem  itself still prints Korean correctly.
 rem
-rem  See the installation manual, section 3.12.
+rem  See the installation manual, section 3.12. (development/test) or 7.12. (production)
 rem ---------------------------------------------------------------------------
 setlocal
 
@@ -15,7 +15,7 @@ if not defined OCS_HOME (
   echo [ERROR] OCS_HOME is not set.
   echo         Open an administrator command prompt and run:
   echo             setx OCS_HOME C:\ocsecure /M
-  echo         Then open a NEW window. See the installation manual, section 3.1.1.
+  echo         Then open a NEW window. See the installation manual, section 3.1.1. (development/test) or 7.1.1. (production)
   exit /b 2
 )
 
@@ -29,20 +29,20 @@ if not exist "%OCS_JAVA%" (
 
 if not exist "%OCS_JAVA%\out\ocsecure\keeper\OcsKeystoreKeeper.class" (
   echo [ERROR] Program not compiled: %OCS_JAVA%\out
-  echo         See the installation manual, section 3.11.
+  echo         See the installation manual, section 3.11. (development/test) or 7.11. (production)
   exit /b 2
 )
 
 if not exist "%OCS_JAVA%\ojdbc8.jar" (
   echo [ERROR] JDBC driver not found: %OCS_JAVA%\ojdbc8.jar
-  echo         Copy it from %%ORACLE_HOME%%\jdbc\lib. See the installation manual, section 3.1.3.
+  echo         Copy it from %%ORACLE_HOME%%\jdbc\lib. See the installation manual, section 3.1.3. (development/test) or 7.1.3. (production)
   exit /b 2
 )
 
 if not exist "%OCS_JAVA%\keeper.properties" (
   echo [ERROR] Config file not found: %OCS_JAVA%\keeper.properties
   echo         Copy keeper.properties.sample and fill it in.
-  echo         See the installation manual, section 3.12.3.
+  echo         See the installation manual, section 3.12.3. (development/test) or 7.12.3. (production)
   exit /b 2
 )
 

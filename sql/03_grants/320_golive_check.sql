@@ -61,6 +61,6 @@ BEGIN
     DBMS_OUTPUT.PUT_LINE('=== 운영 개통 불가: ' || v_fail || '개 항목 ===');
     RAISE_APPLICATION_ERROR(-20999, '운영 개통 조건을 갖추지 못했다');
   END IF;
-  DBMS_OUTPUT.PUT_LINE('=== 운영 개통 조건 충족. 데이터베이스 밖의 일(매뉴얼 4.6.3)은 따로 확인할 것 ===');
+  DBMS_OUTPUT.PUT_LINE('=== 운영 개통 조건 충족. 데이터베이스 밖의 일(설치 매뉴얼 운영 편의 데이터베이스 밖에서 챙길 일, 윈도우는 제8.6.4절)은 따로 확인할 것 ===');
 END;
 /
