@@ -34,10 +34,13 @@ OCSecure 개발자 키트
   2. 개발자_매뉴얼.md 의 제1장과 제3장을 읽는다. 제3장의 예제가 전체 흐름이다.
   3. 예시 테이블이 필요하면 담당자에게 sql_cp949\\800_sample_member.sql 의 실행을 요청한다.
      (SQL*Plus 에서 업무 계정으로 실행한다. 한글이 들어 있으므로 반드시 sql_cp949 쪽을 쓴다.)
-  4. 문맥을 세울 때
+  4. 세션 등록 (DB 연결을 얻은 직후 한 줄, 연결을 닫기 전에 한 줄)
+       session.establish(con, "업무사용자");   // 등록
+       session.release(con);                  // 해제. finally 에서 반드시
+     session 을 만들 때
        개발 인스턴스(개발 모드)   new OcsSessionSupport(null)
        증표 키를 받은 환경         new OcsSessionSupport(new OcsAppProof(증표키))
-     나머지 코드는 같다. 반납 전에 session.release(con) 을 finally 에서 반드시 호출한다.
+     나머지 코드는 같다. 등록하지 않은 연결에서는 암복호화가 ORA-20521 로 거부된다.
   5. 쿼리에서는 FN_ENC_RRN(?), FN_IDX_RRN(?), FN_SHOW('RRN', 컬럼) 처럼 짧은 이름을 쓴다.
 
 막혔을 때

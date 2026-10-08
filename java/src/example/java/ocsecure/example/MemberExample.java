@@ -11,8 +11,8 @@ import ocsecure.client.OcsCrypto;
 import ocsecure.client.OcsSessionSupport;
 
 /**
- * 개발자 매뉴얼 제3장의 예제. 연결을 얻고, 문맥을 세우고, 저장하고, 읽고, 찾고, 고치고,
- * 지우고, 문맥을 거두는 흐름을 한 파일에 담았다.
+ * 개발자 매뉴얼 제3장의 예제. 연결을 얻고, 세션을 등록하고, 저장하고, 읽고, 찾고, 고치고,
+ * 지우고, 등록을 해제하는 흐름을 한 파일에 담았다.
  *
  * <p>전제. 업무 계정에 sql/08_sample/800_sample_member.sql 로 TB_MEMBER 가 만들어져 있어야 한다.
  * 이 예제는 TB_MEMBER 의 투명화 뷰와 원본 표 TB_MEMBER_ENC 를 쓴다. 값은 모두 시험용으로 만든
@@ -23,8 +23,8 @@ import ocsecure.client.OcsSessionSupport;
  *   java -cp out;ojdbc8.jar ocsecure.example.MemberExample "jdbc:oracle:thin:@호스트:포트/서비스명" 계정 - -
  * </pre>
  *
- * <p>실제 응용에서는 DriverManager 대신 연결 풀(DataSource)에서 연결을 빌리고, 증표 키는
- * 키 관리 제품이나 기동 시점에 주입되는 값에서 읽는다. 문맥을 세우고 거두는 부분(establish,
+ * <p>실제 응용에서는 DriverManager 대신 연결 풀(DataSource)에서 DB 연결을 얻고, 증표 키는
+ * 키 관리 제품이나 기동 시점에 주입되는 값에서 읽는다. 세션 등록과 해제 부분(establish,
  * release)이 이 예제의 핵심이다.
  */
 public final class MemberExample {
@@ -141,7 +141,7 @@ public final class MemberExample {
 
         try (Connection con = DriverManager.getConnection(args[0], args[1], pwd)) {
             con.setAutoCommit(false);
-            // 연결을 빌릴 때마다 문맥을 세운다. 업무 사용자 식별자는 데이터베이스 계정이 아니라 실제 사용자다.
+            // DB 연결을 얻을 때마다 세션을 등록한다. 업무 사용자 식별자는 데이터베이스 계정이 아니라 실제 사용자다.
             session.establish(con, "member.admin");
             try {
                 delete(con, ID);   // 이전 실행이 남긴 자료가 있으면 지운다.
@@ -168,9 +168,9 @@ public final class MemberExample {
                 con.rollback();
                 throw e;
             } finally {
-                // 반납 전에 반드시 거둔다. 거두지 않으면 풀의 다음 사용자가 이 문맥을 물려받는다.
+                // 연결을 닫기 전에 반드시 등록을 해제한다. 해제하지 않으면 풀의 다음 사용자가 앞 사용자의 등록을 이어받는다.
                 if (!session.release(con)) {
-                    System.out.println("  [경고] 문맥을 거두지 못하였다.");
+                    System.out.println("  [경고] 세션 등록을 해제하지 못하였다.");
                 }
             }
         }
