@@ -42,7 +42,7 @@ public final class OcsWork {
                 con.commit();
                 return result;
             } catch (SQLException | RuntimeException e) {
-                // 삼키지 않는다. 되돌리고 다시 던진다.
+                // 오류를 숨기지 않는다. 되돌리고 다시 던진다.
                 con.rollback();
                 throw e;
             } finally {

@@ -164,7 +164,7 @@ public final class MemberExample {
                 System.out.println("  삭제  " + delete(con, ID) + "건");
                 con.commit();
             } catch (SQLException e) {
-                // 삼키지 않는다. 되돌리고 다시 던진다.
+                // 오류를 숨기지 않는다. 되돌리고 다시 던진다.
                 con.rollback();
                 throw e;
             } finally {

@@ -72,7 +72,7 @@ public final class OcsSessionSupport {
     /**
      * 문맥을 거둔다. 반드시 finally 에서 호출한다.
      *
-     * <p>거두는 데 실패했다고 업무를 되돌릴 수는 없으므로 예외를 삼키되, 조용히
+     * <p>거두는 데 실패했다고 업무를 되돌릴 수는 없으므로 예외를 던지지 않되, 조용히
      * 넘기지는 않는다. 호출 쪽에서 로그로 남길 수 있도록 성공 여부를 돌려준다.
      */
     public boolean release(Connection con) {

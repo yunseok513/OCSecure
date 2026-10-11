@@ -196,7 +196,7 @@ public final class OcsRecipeCheck {
                     check("빈 비밀번호는 ORA-20541 로 거부된다 (ORA-" + e.getErrorCode() + ")", e.getErrorCode() == 20541);
                 }
             } catch (SQLException e) {
-                // 준비나 저장 단계의 예기치 않은 오류. 삼키지 않고 알린다.
+                // 준비나 저장 단계의 예기치 않은 오류. 숨기지 않고 알린다.
                 System.out.println("  [중단] ORA-" + e.getErrorCode() + " " + e.getMessage());
                 fail++;
             }
@@ -216,7 +216,7 @@ public final class OcsRecipeCheck {
                 check("저장 프로시저가 컴파일되고 문맥이 선 세션에서 저장한다",
                         count(con, "SELECT COUNT(*) FROM TB_RCP_A WHERE mbr_id = 101 AND mbr_rrn_idx = FN_IDX_RRN('" + rrn(101) + "')") == 1);
 
-                // 제9.1절: 예외는 삼키지 않고 되돌린다. 없는 도메인 코드는 ORA-20530.
+                // 제9.1절: 오류는 숨기지 않고 되돌린다. 없는 도메인 코드는 ORA-20530.
                 long before = count(con, "SELECT COUNT(*) FROM TB_RCP_A");
                 try (PreparedStatement ps = con.prepareStatement(
                         "INSERT INTO TB_RCP_A (mbr_id, mbr_phone_enc) VALUES (?, FN_PROTECT('NOPE', ?))")) {
