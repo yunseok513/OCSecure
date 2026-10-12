@@ -10,7 +10,8 @@ import ocsecure.client.OcsSessionSupport;
  * DB 연결을 얻고, 세션을 등록하고, 업무를 하고, 등록을 해제하고, 연결을 닫는 일을 한곳에 모은 도우미.
  *
  * <p>서비스마다 try/finally 를 반복하지 않도록 이 한 곳에서만 세션 등록을 다룬다. 업무 코드는 넘겨받은
- * 연결 하나로 모든 조회와 갱신을 하며, 같은 트랜잭션 안에서 다른 연결을 쓰지 않는다.
+ * 연결 하나로 모든 조회와 갱신을 하며, 같은 트랜잭션 안에서 다른 연결을 쓰지 않는다. 등록을 해제하지 못한
+ * 연결은 Connection.abort() 로 닫아 풀에서 제거한다.
  *
  * <p>사용 예.
  * <pre>
@@ -48,9 +49,19 @@ public final class OcsWork {
             } finally {
                 // 연결을 닫기 전에 반드시 등록을 해제한다. 해제하지 않으면 풀의 다음 사용자가 앞 사용자의 등록을 이어받는다.
                 if (!session.release(con)) {
-                    System.err.println("세션 등록을 해제하지 못하였다. 이 연결은 풀로 돌려보내지 말고 닫는 편이 안전하다.");
+                    // 등록이 남은 연결을 풀에 돌려보내면 다음 사용자가 이어받는다. 물리적으로 닫아 풀에서 제거한다.
+                    discard(con);
                 }
             }
+        }
+    }
+
+    private static void discard(Connection con) {
+        System.err.println("세션 등록을 해제하지 못하였다. 이 연결을 닫아 풀에서 제거한다.");
+        try {
+            con.abort(Runnable::run);
+        } catch (SQLException | RuntimeException e) {
+            System.err.println("연결을 닫지 못하였다. 풀 설정에서 이 연결을 폐기하도록 확인하라: " + e.getMessage());
         }
     }
 }
