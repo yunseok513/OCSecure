@@ -1,0 +1,28 @@
+-- OCS-LITE step 7 (run as SYS): let one business schema use the module
+--
+-- Usage:  @40_connect_app.sql <app_schema>
+--
+-- The schema gets EXECUTE on the LITE_* functions and a synonym for each, so that
+-- queries can say LITE_ENC(col) with no prefix. It gets nothing else: no access
+-- to LITE_KEY, to PKG_LITE or to LITE_SEAL. To remove it: 41_disconnect_app.sql.
+
+WHENEVER SQLERROR EXIT FAILURE
+SET VERIFY OFF
+DEFINE app = '&1'
+
+GRANT EXECUTE ON LITE_OWNER.LITE_ENC        TO &app;
+GRANT EXECUTE ON LITE_OWNER.LITE_DEC        TO &app;
+GRANT EXECUTE ON LITE_OWNER.LITE_MASK       TO &app;
+GRANT EXECUTE ON LITE_OWNER.LITE_PWD_HASH   TO &app;
+GRANT EXECUTE ON LITE_OWNER.LITE_PWD_VERIFY TO &app;
+GRANT EXECUTE ON LITE_OWNER.LITE_READY      TO &app;
+
+CREATE OR REPLACE SYNONYM &app..LITE_ENC        FOR LITE_OWNER.LITE_ENC;
+CREATE OR REPLACE SYNONYM &app..LITE_DEC        FOR LITE_OWNER.LITE_DEC;
+CREATE OR REPLACE SYNONYM &app..LITE_MASK       FOR LITE_OWNER.LITE_MASK;
+CREATE OR REPLACE SYNONYM &app..LITE_PWD_HASH   FOR LITE_OWNER.LITE_PWD_HASH;
+CREATE OR REPLACE SYNONYM &app..LITE_PWD_VERIFY FOR LITE_OWNER.LITE_PWD_VERIFY;
+CREATE OR REPLACE SYNONYM &app..LITE_READY      FOR LITE_OWNER.LITE_READY;
+
+PROMPT
+PROMPT Done. Check as the business schema:  SELECT LITE_READY FROM DUAL;
