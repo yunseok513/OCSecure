@@ -137,5 +137,45 @@ class StaticChecks(unittest.TestCase):
         self.assertEqual(funcs, revoked)
 
 
+class ManualMatchesCode(unittest.TestCase):
+    """The maintenance manual must not drift from the SQL it describes."""
+
+    manual = open(os.path.join(ROOT, 'lite', 'docs', '04_안내서.md'), encoding='utf-8').read()
+
+    def test_function_names(self):
+        funcs = set(re.findall(r'CREATE OR REPLACE FUNCTION (\w+)', read('23_functions.sql')))
+        in_manual = set(re.findall(r'`(LITE_[A-Z_]+)', self.manual)) - {'LITE_KEY', 'LITE_SEAL',
+                                                                        'LITE_OWNER', 'LITE_KEY_SEQ'}
+        self.assertEqual(funcs, in_manual)
+
+    def test_error_codes(self):
+        spec = read('22_pkg_lite.sql')
+        defined = set(re.findall(r'CONSTANT PLS_INTEGER := (-20\d{3});', spec))
+        documented = set(re.findall(r'`(-20\d{3})`', self.manual))
+        self.assertEqual(defined, documented)
+
+    def test_messages_quoted_in_manual_exist_in_code(self):
+        body = read('22_pkg_lite.sql')
+        for msg in ('stored key does not match the seal', 'no active key', 'key id not found',
+                    'ciphertext too short', 'not a valid hex string', 'keys already exist'):
+            self.assertIn(msg, body)
+            self.assertIn(msg, self.manual)
+
+    def test_iteration_default(self):
+        m = re.search(r'c_pwd_iterations CONSTANT PLS_INTEGER := (\d+);', read('22_pkg_lite.sql'))
+        self.assertIn('(기본 %s)' % m.group(1), self.manual)
+
+    def test_files_named_in_manual_exist(self):
+        for name in set(re.findall(r'`?@?(\d\d_\w+\.sql)', self.manual)):
+            self.assertTrue(os.path.exists(os.path.join(SQL_DIR, name)), name)
+
+    def test_column_lengths_match_reference(self):
+        root = bytes(32)
+        n = lambda s: len(lite_ref.pack_with_root(root, 1, s)) * 2
+        for want, plain in ((136, 'a' * 13), (168, 'a' * 20), (200, 'a' * 32)):
+            self.assertEqual(n(plain), want)
+            self.assertIn(str(want), self.manual)
+
+
 if __name__ == '__main__':
     unittest.main()
