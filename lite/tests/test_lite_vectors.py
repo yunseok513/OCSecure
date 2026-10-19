@@ -176,5 +176,87 @@ class ManualMatchesCode(unittest.TestCase):
             self.assertIn(str(want), self.manual)
 
 
+class PackageBuilder(unittest.TestCase):
+    """lite/tools/make_lite_package.py builds a complete, self-consistent package."""
+
+    @classmethod
+    def setUpClass(cls):
+        import subprocess
+        import tempfile
+        cls.tmp = tempfile.mkdtemp()
+        r = subprocess.run([sys.executable, '-I', os.path.join(ROOT, 'lite', 'tools', 'make_lite_package.py'),
+                            '--out', cls.tmp, '--no-zip', '--skip-tests'],
+                           stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        cls.output = r.stdout.decode('utf-8', 'replace')
+        cls.rc = r.returncode
+        dirs = [d for d in os.listdir(cls.tmp) if d.startswith('ocs-lite-install-')]
+        cls.dest = os.path.join(cls.tmp, dirs[0]) if dirs else None
+
+    @classmethod
+    def tearDownClass(cls):
+        import shutil
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def rel_files(self):
+        out = set()
+        for base, _d, files in os.walk(self.dest):
+            for f in files:
+                out.add(os.path.relpath(os.path.join(base, f), self.dest).replace(os.sep, '/'))
+        return out
+
+    def test_build_succeeds(self):
+        self.assertEqual(self.rc, 0, self.output)
+        self.assertIsNotNone(self.dest)
+
+    def test_contents_are_exactly_the_install_set(self):
+        sql = {'sql/' + f for f in os.listdir(SQL_DIR) if f.endswith('.sql')}
+        want = sql | {'안내서.md', '설계결정.md', 'tools/verify_manifest.py', 'VERSION', 'MANIFEST.sha256'}
+        self.assertEqual(self.rel_files(), want)
+
+    def test_no_test_or_reference_code_inside(self):
+        for rel in self.rel_files():
+            self.assertNotIn('lite_ref', rel)
+            self.assertNotIn('test_', rel)
+            self.assertNotIn('__pycache__', rel)
+
+    def test_manifest_matches_every_file(self):
+        import hashlib
+        listed = {}
+        with open(os.path.join(self.dest, 'MANIFEST.sha256'), encoding='utf-8') as fh:
+            for line in fh:
+                if line.strip():
+                    digest, rel = line.rstrip('\n').split('  ', 1)
+                    listed[rel] = digest
+        self.assertEqual(set(listed), self.rel_files() - {'MANIFEST.sha256'})
+        for rel, digest in listed.items():
+            with open(os.path.join(self.dest, rel), 'rb') as fh:
+                self.assertEqual(hashlib.sha256(fh.read()).hexdigest(), digest, rel)
+
+    def test_packaged_sql_equals_source(self):
+        for f in os.listdir(SQL_DIR):
+            if f.endswith('.sql'):
+                with open(os.path.join(SQL_DIR, f), 'rb') as a, \
+                        open(os.path.join(self.dest, 'sql', f), 'rb') as b:
+                    self.assertEqual(a.read().replace(b'\r\n', b'\n'), b.read(), f)
+
+    def test_unlisted_sql_file_stops_the_build(self):
+        import importlib.util
+        import shutil
+        import tempfile
+        spec = importlib.util.spec_from_file_location(
+            'make_lite_package', os.path.join(ROOT, 'lite', 'tools', 'make_lite_package.py'))
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        fake = tempfile.mkdtemp()
+        try:
+            shutil.copytree(SQL_DIR, os.path.join(fake, 'sql'))
+            open(os.path.join(fake, 'sql', '60_new.sql'), 'w').write('-- new\n')
+            mod.LITE = fake
+            with self.assertRaises(SystemExit):
+                mod.check_sql_list()
+        finally:
+            shutil.rmtree(fake, ignore_errors=True)
+
+
 if __name__ == '__main__':
     unittest.main()

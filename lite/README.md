@@ -30,6 +30,16 @@ SELECT FN_SFC_PWD_VERIFY('pw', pw_hash) FROM t;   -- 1 또는 0
 
 유지보수업체에 전달하는 안내서는 `docs/04_안내서.md`입니다. 설계 근거는 `docs/01`부터 `03`까지에 있습니다.
 
+## 설치 패키지 만들기
+
+외부에 전달하는 것은 설치 패키지 하나입니다. 담을 파일은 `lite/tools/make_lite_package.py` 안의 목록에 명시되어 있고, 목록에 없는 파일(설계 기록, 시험 코드, 참조 구현)은 들어가지 않습니다. 만들기 전에 아래 시험을 자동으로 돌리며, 하나라도 실패하면 만들지 않습니다.
+
+```
+python3 lite/tools/make_lite_package.py
+```
+
+결과는 `dist/ocs-lite-install-날짜.zip`입니다. 받는 쪽은 풀어서 최상위 폴더에서 `sha256sum -c MANIFEST.sha256`으로 확인한 뒤 `안내서.md` 제3장을 따릅니다.
+
 ## 오라클 없이 하는 점검
 
 ```
