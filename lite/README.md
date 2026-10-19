@@ -9,7 +9,7 @@
 | 1 | SYS | `@10_sys_setup.sql <소유계정 암호> <테이블스페이스>` |
 | 2 | SFC_OWNER | `@20_key_table.sql` |
 | 3 | SFC_OWNER | `@21_seal.sql` (한 번만. 두 번째는 스스로 거부) |
-| 4 | SFC_OWNER | `@22_pkg_lite.sql` 그리고 `@23_functions.sql` |
+| 4 | SFC_OWNER | `@22_pkg_sfc.sql` 그리고 `@23_functions.sql` |
 | 5 | SFC_OWNER | `@30_init_key.sql` |
 | 6 | SFC_OWNER | `@50_selftest.sql` (FAIL 이 한 줄이라도 있으면 배포하지 않음) |
 | 7 | SYS | `@40_connect_app.sql <업무 스키마>` |

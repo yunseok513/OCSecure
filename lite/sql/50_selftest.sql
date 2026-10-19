@@ -1,6 +1,6 @@
 -- OCS-LITE self test (run as SFC_OWNER, after steps 1 to 6)
 --
--- Part A needs no key and compares PKG_LITE with fixed vectors computed outside
+-- Part A needs no key and compares PKG_SFC with fixed vectors computed outside
 -- Oracle by lite/tests/lite_ref.py (python test: lite/tests/test_lite_vectors.py).
 -- Part B uses the live key and writes nothing to any table.
 -- Any FAIL line means: do not deliver.
@@ -53,15 +53,15 @@ BEGIN
   v_ko := TO_CHAR(UNISTR('\D55C\AE00\D14C\C2A4\D2B8'));
 
   DBMS_OUTPUT.PUT_LINE('--- Part A: fixed vectors (no key needed)');
-  chk('A1 key derivation', RAWTOHEX(PKG_LITE.derive(k_root, 'OCS-LITE/ENC/v1')) = e_derive);
+  chk('A1 key derivation', RAWTOHEX(PKG_SFC.derive(k_root, 'OCS-LITE/ENC/v1')) = e_derive);
   chk('A2 identification number blob',
-      RAWTOHEX(PKG_LITE.pack_with_root(k_root, 7, '9001011234567', k_iv)) = e_rrn);
+      RAWTOHEX(PKG_SFC.pack_with_root(k_root, 7, '9001011234567', k_iv)) = e_rrn);
   chk('A3 Korean text blob (UTF-8)',
-      RAWTOHEX(PKG_LITE.pack_with_root(k_root, 7, v_ko, k_iv)) = e_ko);
-  chk('A4 root key wrap', RAWTOHEX(PKG_LITE.wrap_root(k_root, k_seal, k_iv2)) = e_wrap);
-  chk('A5 root key unwrap', PKG_LITE.unwrap_root(HEXTORAW(e_wrap), k_seal) = k_root);
-  chk('A6 password hash', PKG_LITE.pwd_hash_hex('!Pass-Word1', k_salt, 3) = e_pwd);
-  chk('A7 blob round trip', PKG_LITE.unpack_with_root(k_root, HEXTORAW(e_ko)) = v_ko);
+      RAWTOHEX(PKG_SFC.pack_with_root(k_root, 7, v_ko, k_iv)) = e_ko);
+  chk('A4 root key wrap', RAWTOHEX(PKG_SFC.wrap_root(k_root, k_seal, k_iv2)) = e_wrap);
+  chk('A5 root key unwrap', PKG_SFC.unwrap_root(HEXTORAW(e_wrap), k_seal) = k_root);
+  chk('A6 password hash', PKG_SFC.pwd_hash_hex('!Pass-Word1', k_salt, 3) = e_pwd);
+  chk('A7 blob round trip', PKG_SFC.unpack_with_root(k_root, HEXTORAW(e_ko)) = v_ko);
   chk('A8 length of a 13 char value is 136 hex chars', LENGTH(e_rrn) = 136);
 
   -- flip the last byte of the tag: must be refused before any decryption
@@ -69,7 +69,7 @@ BEGIN
   v_blob := UTL_RAW.CONCAT(UTL_RAW.SUBSTR(v_blob, 1, UTL_RAW.LENGTH(v_blob) - 1),
                            UTL_RAW.BIT_XOR(UTL_RAW.SUBSTR(v_blob, UTL_RAW.LENGTH(v_blob), 1), HEXTORAW('01')));
   BEGIN
-    v_ko := PKG_LITE.unpack_with_root(k_root, v_blob);
+    v_ko := PKG_SFC.unpack_with_root(k_root, v_blob);
     v_code := 0;
   EXCEPTION
     WHEN OTHERS THEN v_code := SQLCODE;
@@ -82,47 +82,47 @@ BEGIN
                            UTL_RAW.BIT_XOR(UTL_RAW.SUBSTR(v_blob, 21, 1), HEXTORAW('01')),
                            UTL_RAW.SUBSTR(v_blob, 22));
   BEGIN
-    v_ko := PKG_LITE.unpack_with_root(k_root, v_blob);
+    v_ko := PKG_SFC.unpack_with_root(k_root, v_blob);
     v_code := 0;
   EXCEPTION
     WHEN OTHERS THEN v_code := SQLCODE;
   END;
   chk('A10 tampered ciphertext is refused (-20603)', v_code = -20603);
 
-  chk('A11 password verify (right)', PKG_LITE.pwd_verify_hex('!Pass-Word1', e_pwd) = 1);
-  chk('A12 password verify (wrong)', PKG_LITE.pwd_verify_hex('!Pass-Word2', e_pwd) = 0);
-  chk('A13 password verify (garbage stored value)', PKG_LITE.pwd_verify_hex('x', 'ZZ') = 0);
-  chk('A14 password verify (NULL)', PKG_LITE.pwd_verify_hex(NULL, e_pwd) = 0);
+  chk('A11 password verify (right)', PKG_SFC.pwd_verify_hex('!Pass-Word1', e_pwd) = 1);
+  chk('A12 password verify (wrong)', PKG_SFC.pwd_verify_hex('!Pass-Word2', e_pwd) = 0);
+  chk('A13 password verify (garbage stored value)', PKG_SFC.pwd_verify_hex('x', 'ZZ') = 0);
+  chk('A14 password verify (NULL)', PKG_SFC.pwd_verify_hex(NULL, e_pwd) = 0);
   chk('A15 empty password refused (-20601)',
-      code_of('BEGIN DBMS_OUTPUT.PUT(LENGTH(PKG_LITE.pwd_hash_hex(NULL))); END;') = -20601);
+      code_of('BEGIN DBMS_OUTPUT.PUT(LENGTH(PKG_SFC.pwd_hash_hex(NULL))); END;') = -20601);
 
-  chk('A16 mask RRN with hyphen', PKG_LITE.mask_value('900101-1234567', 'RRN') = '900101-*******');
-  chk('A17 mask RRN without hyphen', PKG_LITE.mask_value('9001011234567', 'RRN') = '900101-*******');
-  chk('A18 mask RRN of unexpected length hides all', PKG_LITE.mask_value('12345', 'RRN') = '********');
-  chk('A19 mask ACCOUNT', PKG_LITE.mask_value('110123456789', 'ACCOUNT') = '1101********');
-  chk('A20 mask ALL', PKG_LITE.mask_value('anything', 'ALL') = '********');
-  chk('A21 mask NULL stays NULL', PKG_LITE.mask_value(NULL, 'RRN') IS NULL);
+  chk('A16 mask RRN with hyphen', PKG_SFC.mask_value('900101-1234567', 'RRN') = '900101-*******');
+  chk('A17 mask RRN without hyphen', PKG_SFC.mask_value('9001011234567', 'RRN') = '900101-*******');
+  chk('A18 mask RRN of unexpected length hides all', PKG_SFC.mask_value('12345', 'RRN') = '********');
+  chk('A19 mask ACCOUNT', PKG_SFC.mask_value('110123456789', 'ACCOUNT') = '1101********');
+  chk('A20 mask ALL', PKG_SFC.mask_value('anything', 'ALL') = '********');
+  chk('A21 mask NULL stays NULL', PKG_SFC.mask_value(NULL, 'RRN') IS NULL);
   chk('A22 unknown mask type refused (-20601)',
-      code_of('BEGIN DBMS_OUTPUT.PUT(PKG_LITE.mask_value(''x'', ''ZZZ'')); END;') = -20601);
+      code_of('BEGIN DBMS_OUTPUT.PUT(PKG_SFC.mask_value(''x'', ''ZZZ'')); END;') = -20601);
 
   DBMS_OUTPUT.PUT_LINE('--- Part B: live key');
-  IF PKG_LITE.is_ready = 1 THEN
-    v_hex := PKG_LITE.encrypt_hex('9001011234567');
-    v_hex2 := PKG_LITE.encrypt_hex('9001011234567');
+  IF PKG_SFC.is_ready = 1 THEN
+    v_hex := PKG_SFC.encrypt_hex('9001011234567');
+    v_hex2 := PKG_SFC.encrypt_hex('9001011234567');
     chk('B1 stored form is 136 hex chars', LENGTH(v_hex) = 136);
-    chk('B2 round trip', PKG_LITE.decrypt_hex(v_hex) = '9001011234567');
+    chk('B2 round trip', PKG_SFC.decrypt_hex(v_hex) = '9001011234567');
     chk('B3 same plain text gives different ciphertext', v_hex <> v_hex2);
-    chk('B4 Korean round trip', PKG_LITE.decrypt_hex(PKG_LITE.encrypt_hex(TO_CHAR(UNISTR('\D55C\AE00')))) = TO_CHAR(UNISTR('\D55C\AE00')));
-    chk('B5 NULL in, NULL out', PKG_LITE.encrypt_hex(NULL) IS NULL AND PKG_LITE.decrypt_hex(NULL) IS NULL);
-    chk('B6 mask through ciphertext', PKG_LITE.mask_hex(v_hex, 'RRN') = '900101-*******');
+    chk('B4 Korean round trip', PKG_SFC.decrypt_hex(PKG_SFC.encrypt_hex(TO_CHAR(UNISTR('\D55C\AE00')))) = TO_CHAR(UNISTR('\D55C\AE00')));
+    chk('B5 NULL in, NULL out', PKG_SFC.encrypt_hex(NULL) IS NULL AND PKG_SFC.decrypt_hex(NULL) IS NULL);
+    chk('B6 mask through ciphertext', PKG_SFC.mask_hex(v_hex, 'RRN') = '900101-*******');
     chk('B7 garbage ciphertext refused (-20604)',
-        code_of('BEGIN DBMS_OUTPUT.PUT(PKG_LITE.decrypt_hex(''ZZ'')); END;') = -20604);
+        code_of('BEGIN DBMS_OUTPUT.PUT(PKG_SFC.decrypt_hex(''ZZ'')); END;') = -20604);
     chk('B8 too long plain text refused (-20601)',
-        code_of('BEGIN DBMS_OUTPUT.PUT(PKG_LITE.encrypt_hex(RPAD(''a'', 3000, ''a''))); END;') = -20601);
-    v_hex2 := PKG_LITE.pwd_hash_hex('MyPassw0rd!');
+        code_of('BEGIN DBMS_OUTPUT.PUT(PKG_SFC.encrypt_hex(RPAD(''a'', 3000, ''a''))); END;') = -20601);
+    v_hex2 := PKG_SFC.pwd_hash_hex('MyPassw0rd!');
     chk('B9 password hash is 108 hex chars', LENGTH(v_hex2) = 108);
     chk('B10 password verify with default rounds',
-        PKG_LITE.pwd_verify_hex('MyPassw0rd!', v_hex2) = 1 AND PKG_LITE.pwd_verify_hex('MyPassw0rd?', v_hex2) = 0);
+        PKG_SFC.pwd_verify_hex('MyPassw0rd!', v_hex2) = 1 AND PKG_SFC.pwd_verify_hex('MyPassw0rd?', v_hex2) = 0);
     chk('B11 FN_SFC_READY', FN_SFC_READY = 1);
   ELSE
     DBMS_OUTPUT.PUT_LINE('SKIP  Part B: no usable key. Run 30_init_key.sql first.');

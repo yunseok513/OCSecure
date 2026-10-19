@@ -1,6 +1,6 @@
 -- OCS-LITE step 4 (run as SFC_OWNER)
 --
--- PKG_LITE: the whole module in one package.
+-- PKG_SFC: the whole module in one package.
 --
 -- Blob layout (same as the full edition, so data can move between them):
 --   ver(1) | alg(1) | key_id(2) | iv(16) | AES-256-CBC ciphertext | HMAC-SHA256 tag(32)
@@ -16,7 +16,7 @@
 --   -20603 integrity failed  -20604 bad ciphertext format
 --   -20605 wrong state (init_key twice, rotate_key without a key)
 
-CREATE OR REPLACE PACKAGE PKG_LITE AS
+CREATE OR REPLACE PACKAGE PKG_SFC AS
 
   e_bad_arg    CONSTANT PLS_INTEGER := -20601;
   e_no_key     CONSTANT PLS_INTEGER := -20602;
@@ -54,10 +54,10 @@ CREATE OR REPLACE PACKAGE PKG_LITE AS
   FUNCTION unpack_with_root(p_root IN RAW, p_blob IN RAW) RETURN VARCHAR2;
   FUNCTION wrap_root(p_root IN RAW, p_seal IN RAW, p_iv IN RAW DEFAULT NULL) RETURN RAW;
   FUNCTION unwrap_root(p_blob IN RAW, p_seal IN RAW) RETURN RAW;
-END PKG_LITE;
+END PKG_SFC;
 /
 
-CREATE OR REPLACE PACKAGE BODY PKG_LITE AS
+CREATE OR REPLACE PACKAGE BODY PKG_SFC AS
 
   c_charset  CONSTANT VARCHAR2(30) := 'AL32UTF8';
   c_fmt_ver  CONSTANT PLS_INTEGER := 1;
@@ -247,13 +247,13 @@ CREATE OR REPLACE PACKAGE BODY PKG_LITE AS
       RETURN g_cache(p_key_id);
     END IF;
     BEGIN
-      SELECT root_wrapped INTO v_wrapped FROM LITE_KEY WHERE key_id = p_key_id;
+      SELECT root_wrapped INTO v_wrapped FROM SFC_KEY WHERE key_id = p_key_id;
     EXCEPTION
       WHEN NO_DATA_FOUND THEN
         fail(e_no_key, 'key id not found: ' || p_key_id);
     END;
     BEGIN
-      v_root := unwrap_root(v_wrapped, LITE_SEAL.get_seal);
+      v_root := unwrap_root(v_wrapped, SFC_SEAL.get_seal);
     EXCEPTION
       WHEN OTHERS THEN
         IF SQLCODE = e_integrity THEN
@@ -270,26 +270,26 @@ CREATE OR REPLACE PACKAGE BODY PKG_LITE AS
   FUNCTION active_key_id RETURN PLS_INTEGER IS
     v PLS_INTEGER;
   BEGIN
-    SELECT key_id INTO v FROM LITE_KEY WHERE key_state = 'ACTIVE';
+    SELECT key_id INTO v FROM SFC_KEY WHERE key_state = 'ACTIVE';
     RETURN v;
   EXCEPTION
     WHEN NO_DATA_FOUND THEN
-      fail(e_no_key, 'no active key, run PKG_LITE.init_key');
+      fail(e_no_key, 'no active key, run PKG_SFC.init_key');
       RETURN NULL;
   END active_key_id;
 
   PROCEDURE new_key IS
     v_root RAW(32) := DBMS_CRYPTO.RANDOMBYTES(32);
   BEGIN
-    INSERT INTO LITE_KEY (key_id, key_state, root_wrapped)
-    VALUES (LITE_KEY_SEQ.NEXTVAL, 'ACTIVE', wrap_root(v_root, LITE_SEAL.get_seal));
+    INSERT INTO SFC_KEY (key_id, key_state, root_wrapped)
+    VALUES (SFC_KEY_SEQ.NEXTVAL, 'ACTIVE', wrap_root(v_root, SFC_SEAL.get_seal));
     g_cache.DELETE;
   END new_key;
 
   PROCEDURE init_key IS
     v_n NUMBER;
   BEGIN
-    SELECT COUNT(*) INTO v_n FROM LITE_KEY;
+    SELECT COUNT(*) INTO v_n FROM SFC_KEY;
     IF v_n > 0 THEN
       fail(e_state, 'keys already exist, use rotate_key');
     END IF;
@@ -300,12 +300,12 @@ CREATE OR REPLACE PACKAGE BODY PKG_LITE AS
   PROCEDURE rotate_key IS
     v_n NUMBER;
   BEGIN
-    SELECT COUNT(*) INTO v_n FROM LITE_KEY WHERE key_state = 'ACTIVE';
+    SELECT COUNT(*) INTO v_n FROM SFC_KEY WHERE key_state = 'ACTIVE';
     IF v_n = 0 THEN
       fail(e_state, 'no active key, use init_key');
     END IF;
     -- the old key stays (state OLD) so existing data still decrypts
-    UPDATE LITE_KEY SET key_state = 'OLD', retired_at = SYSTIMESTAMP
+    UPDATE SFC_KEY SET key_state = 'OLD', retired_at = SYSTIMESTAMP
      WHERE key_state = 'ACTIVE';
     new_key;
     COMMIT;
@@ -456,9 +456,9 @@ CREATE OR REPLACE PACKAGE BODY PKG_LITE AS
     RETURN 0;
   END pwd_verify_hex;
 
-END PKG_LITE;
+END PKG_SFC;
 /
 
 SELECT object_name, object_type, status FROM user_objects
- WHERE object_name = 'PKG_LITE' ORDER BY object_type;
+ WHERE object_name = 'PKG_SFC' ORDER BY object_type;
 SHOW ERRORS

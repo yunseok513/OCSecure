@@ -5,7 +5,7 @@
 
 SET SERVEROUTPUT ON
 
-EXEC PKG_LITE.init_key
+EXEC PKG_SFC.init_key
 
-SELECT key_id, key_state, created_at FROM LITE_KEY ORDER BY key_id;
+SELECT key_id, key_state, created_at FROM SFC_KEY ORDER BY key_id;
 SELECT FN_SFC_READY AS ready FROM DUAL;

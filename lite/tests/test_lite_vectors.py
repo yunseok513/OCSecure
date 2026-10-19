@@ -106,24 +106,24 @@ class StaticChecks(unittest.TestCase):
                 self.fail('%s has non-ASCII bytes at %d' % (os.path.basename(path), e.start))
 
     def test_package_spec_body_agree(self):
-        errs = lint_plsql.check_file(os.path.join(SQL_DIR, '22_pkg_lite.sql'))
+        errs = lint_plsql.check_file(os.path.join(SQL_DIR, '22_pkg_sfc.sql'))
         self.assertEqual(errs, [])
 
     def test_calls_into_spec_exist(self):
-        public = lint_plsql.collect_specs([os.path.join(SQL_DIR, '22_pkg_lite.sql')])
-        self.assertIn('PKG_LITE', public)
+        public = lint_plsql.collect_specs([os.path.join(SQL_DIR, '22_pkg_sfc.sql')])
+        self.assertIn('PKG_SFC', public)
         for path in self.files:
             self.assertEqual(lint_plsql.check_calls(path, public), [], path)
 
     def test_no_sql_errfn_trailing_comment(self):
-        public = lint_plsql.collect_specs([os.path.join(SQL_DIR, '22_pkg_lite.sql')])
+        public = lint_plsql.collect_specs([os.path.join(SQL_DIR, '22_pkg_sfc.sql')])
         for path in self.files:
             self.assertEqual(lint_plsql.check_sql_errfn(path), [], path)
             self.assertEqual(lint_plsql.check_trailing_comment(path), [], path)
             self.assertEqual(lint_plsql.check_local_in_sql(path, public), [], path)
 
     def test_every_unit_terminated(self):
-        for name in ('22_pkg_lite.sql', '23_functions.sql'):
+        for name in ('22_pkg_sfc.sql', '23_functions.sql'):
             text = lint_plsql.strip_comments(read(name))
             creates = len(re.findall(r'^\s*CREATE\s+OR\s+REPLACE\b', text, re.I | re.M))
             slashes = len(re.findall(r'^\s*/\s*$', text, re.M))
@@ -148,20 +148,20 @@ class ManualMatchesCode(unittest.TestCase):
         self.assertEqual(funcs, in_manual)
 
     def test_error_codes(self):
-        spec = read('22_pkg_lite.sql')
+        spec = read('22_pkg_sfc.sql')
         defined = set(re.findall(r'CONSTANT PLS_INTEGER := (-20\d{3});', spec))
         documented = set(re.findall(r'`(-20\d{3})`', self.manual))
         self.assertEqual(defined, documented)
 
     def test_messages_quoted_in_manual_exist_in_code(self):
-        body = read('22_pkg_lite.sql')
+        body = read('22_pkg_sfc.sql')
         for msg in ('stored key does not match the seal', 'no active key', 'key id not found',
                     'ciphertext too short', 'not a valid hex string', 'keys already exist'):
             self.assertIn(msg, body)
             self.assertIn(msg, self.manual)
 
     def test_iteration_default(self):
-        m = re.search(r'c_pwd_iterations CONSTANT PLS_INTEGER := (\d+);', read('22_pkg_lite.sql'))
+        m = re.search(r'c_pwd_iterations CONSTANT PLS_INTEGER := (\d+);', read('22_pkg_sfc.sql'))
         self.assertIn('(기본 %s)' % m.group(1), self.manual)
 
     def test_files_named_in_manual_exist(self):

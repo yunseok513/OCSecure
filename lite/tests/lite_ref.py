@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
 """Lite module reference implementation (executable definition of the byte format).
 
-The PL/SQL package PKG_LITE must produce byte-identical results. The blob layout
+The PL/SQL package PKG_SFC must produce byte-identical results. The blob layout
 and the password layout are the same as the full edition (tools/refimpl/ocsecure_ref.py);
 only the key derivation is specific to the lite edition:
 
-    root key (32 random bytes, stored wrapped in LITE_KEY)
+    root key (32 random bytes, stored wrapped in SFC_KEY)
       enc_key = HMAC-SHA256(key=root, msg='OCS-LITE/ENC/v1')
       mac_key = HMAC-SHA256(key=root, msg='OCS-LITE/MAC/v1')
-    seal (32 random bytes, kept in package LITE_SEAL)
+    seal (32 random bytes, kept in package SFC_SEAL)
       seal_enc = HMAC-SHA256(key=seal, msg='OCS-LITE/SEAL-ENC/v1')
       seal_mac = HMAC-SHA256(key=seal, msg='OCS-LITE/SEAL-MAC/v1')
     wrapped root = blob(plain=root, key_id=0, seal_enc, seal_mac)

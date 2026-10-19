@@ -1,6 +1,6 @@
 -- OCS-LITE step 5 (run as SFC_OWNER)
 --
--- The only entry points for applications. Each one is a thin call into PKG_LITE.
+-- The only entry points for applications. Each one is a thin call into PKG_SFC.
 -- Applications get EXECUTE on these functions and on nothing else.
 --
 --   FN_SFC_ENC(plain)               identification number -> hex ciphertext (VARCHAR2)
@@ -12,37 +12,37 @@
 
 CREATE OR REPLACE FUNCTION FN_SFC_ENC(p_plain IN VARCHAR2) RETURN VARCHAR2 IS
 BEGIN
-  RETURN PKG_LITE.encrypt_hex(p_plain);
+  RETURN PKG_SFC.encrypt_hex(p_plain);
 END FN_SFC_ENC;
 /
 
 CREATE OR REPLACE FUNCTION FN_SFC_DEC(p_hex IN VARCHAR2) RETURN VARCHAR2 IS
 BEGIN
-  RETURN PKG_LITE.decrypt_hex(p_hex);
+  RETURN PKG_SFC.decrypt_hex(p_hex);
 END FN_SFC_DEC;
 /
 
 CREATE OR REPLACE FUNCTION FN_SFC_MASK(p_hex IN VARCHAR2, p_type IN VARCHAR2 DEFAULT 'ALL') RETURN VARCHAR2 IS
 BEGIN
-  RETURN PKG_LITE.mask_hex(p_hex, p_type);
+  RETURN PKG_SFC.mask_hex(p_hex, p_type);
 END FN_SFC_MASK;
 /
 
 CREATE OR REPLACE FUNCTION FN_SFC_PWD_HASH(p_password IN VARCHAR2) RETURN VARCHAR2 IS
 BEGIN
-  RETURN PKG_LITE.pwd_hash_hex(p_password);
+  RETURN PKG_SFC.pwd_hash_hex(p_password);
 END FN_SFC_PWD_HASH;
 /
 
 CREATE OR REPLACE FUNCTION FN_SFC_PWD_VERIFY(p_password IN VARCHAR2, p_stored IN VARCHAR2) RETURN NUMBER IS
 BEGIN
-  RETURN PKG_LITE.pwd_verify_hex(p_password, p_stored);
+  RETURN PKG_SFC.pwd_verify_hex(p_password, p_stored);
 END FN_SFC_PWD_VERIFY;
 /
 
 CREATE OR REPLACE FUNCTION FN_SFC_READY RETURN NUMBER IS
 BEGIN
-  RETURN PKG_LITE.is_ready;
+  RETURN PKG_SFC.is_ready;
 END FN_SFC_READY;
 /
 

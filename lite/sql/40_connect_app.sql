@@ -4,7 +4,7 @@
 --
 -- The schema gets EXECUTE on the FN_SFC_* functions and a synonym for each, so that
 -- queries can say FN_SFC_ENC(col) with no prefix. It gets nothing else: no access
--- to LITE_KEY, to PKG_LITE or to LITE_SEAL. To remove it: 41_disconnect_app.sql.
+-- to SFC_KEY, to PKG_SFC or to SFC_SEAL. To remove it: 41_disconnect_app.sql.
 
 WHENEVER SQLERROR EXIT FAILURE
 SET VERIFY OFF

@@ -1,8 +1,8 @@
 -- OCS-LITE step 3 (run as SFC_OWNER)
 --
--- Creates package LITE_SEAL holding a random 32-byte seal that wraps the root keys
--- stored in LITE_KEY. It is generated once, here, and is NOT regenerated when
--- PKG_LITE is recompiled. Losing or replacing it makes every stored key
+-- Creates package SFC_SEAL holding a random 32-byte seal that wraps the root keys
+-- stored in SFC_KEY. It is generated once, here, and is NOT regenerated when
+-- PKG_SFC is recompiled. Losing or replacing it makes every stored key
 -- unreadable, so this script refuses to run a second time.
 --
 -- Optional hardening: wrap the generated source (Oracle "wrap" utility) before
@@ -11,9 +11,9 @@
 
 SET SERVEROUTPUT ON
 
-CREATE OR REPLACE PACKAGE LITE_SEAL AS
+CREATE OR REPLACE PACKAGE SFC_SEAL AS
   FUNCTION get_seal RETURN RAW;
-END LITE_SEAL;
+END SFC_SEAL;
 /
 
 DECLARE
@@ -22,18 +22,18 @@ DECLARE
 BEGIN
   SELECT COUNT(*) INTO v_exists
     FROM user_objects
-   WHERE object_name = 'LITE_SEAL' AND object_type = 'PACKAGE BODY';
+   WHERE object_name = 'SFC_SEAL' AND object_type = 'PACKAGE BODY';
   IF v_exists > 0 THEN
-    DBMS_OUTPUT.PUT_LINE('LITE_SEAL body already exists. Left unchanged on purpose.');
+    DBMS_OUTPUT.PUT_LINE('SFC_SEAL body already exists. Left unchanged on purpose.');
     RETURN;
   END IF;
   v_hex := RAWTOHEX(DBMS_CRYPTO.RANDOMBYTES(32));
   EXECUTE IMMEDIATE
-    'CREATE OR REPLACE PACKAGE BODY LITE_SEAL AS '
+    'CREATE OR REPLACE PACKAGE BODY SFC_SEAL AS '
     || 'FUNCTION get_seal RETURN RAW IS BEGIN RETURN HEXTORAW(''' || v_hex
-    || '''); END get_seal; END LITE_SEAL;';
-  DBMS_OUTPUT.PUT_LINE('LITE_SEAL created.');
+    || '''); END get_seal; END SFC_SEAL;';
+  DBMS_OUTPUT.PUT_LINE('SFC_SEAL created.');
 END;
 /
 
-SELECT object_name, object_type, status FROM user_objects WHERE object_name = 'LITE_SEAL';
+SELECT object_name, object_type, status FROM user_objects WHERE object_name = 'SFC_SEAL';
