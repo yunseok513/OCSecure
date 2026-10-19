@@ -1,4 +1,4 @@
--- OCS-LITE self test (run as LITE_OWNER, after steps 1 to 6)
+-- OCS-LITE self test (run as SFC_OWNER, after steps 1 to 6)
 --
 -- Part A needs no key and compares PKG_LITE with fixed vectors computed outside
 -- Oracle by lite/tests/lite_ref.py (python test: lite/tests/test_lite_vectors.py).
@@ -123,7 +123,7 @@ BEGIN
     chk('B9 password hash is 108 hex chars', LENGTH(v_hex2) = 108);
     chk('B10 password verify with default rounds',
         PKG_LITE.pwd_verify_hex('MyPassw0rd!', v_hex2) = 1 AND PKG_LITE.pwd_verify_hex('MyPassw0rd?', v_hex2) = 0);
-    chk('B11 LITE_READY', LITE_READY = 1);
+    chk('B11 FN_SFC_READY', FN_SFC_READY = 1);
   ELSE
     DBMS_OUTPUT.PUT_LINE('SKIP  Part B: no usable key. Run 30_init_key.sql first.');
     g_fail := g_fail + 1;

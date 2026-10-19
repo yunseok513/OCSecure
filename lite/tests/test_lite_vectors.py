@@ -131,8 +131,8 @@ class StaticChecks(unittest.TestCase):
 
     def test_app_functions_match_connect_script(self):
         funcs = set(re.findall(r'CREATE OR REPLACE FUNCTION (\w+)', read('23_functions.sql')))
-        granted = set(re.findall(r'GRANT EXECUTE ON LITE_OWNER\.(\w+)', read('40_connect_app.sql')))
-        revoked = set(re.findall(r'REVOKE EXECUTE ON LITE_OWNER\.(\w+)', read('41_disconnect_app.sql')))
+        granted = set(re.findall(r'GRANT EXECUTE ON SFC_OWNER\.(\w+)', read('40_connect_app.sql')))
+        revoked = set(re.findall(r'REVOKE EXECUTE ON SFC_OWNER\.(\w+)', read('41_disconnect_app.sql')))
         self.assertEqual(funcs, granted)
         self.assertEqual(funcs, revoked)
 
@@ -144,8 +144,7 @@ class ManualMatchesCode(unittest.TestCase):
 
     def test_function_names(self):
         funcs = set(re.findall(r'CREATE OR REPLACE FUNCTION (\w+)', read('23_functions.sql')))
-        in_manual = set(re.findall(r'`(LITE_[A-Z_]+)', self.manual)) - {'LITE_KEY', 'LITE_SEAL',
-                                                                        'LITE_OWNER', 'LITE_KEY_SEQ'}
+        in_manual = set(re.findall(r'`(FN_SFC_[A-Z_]+)', self.manual))
         self.assertEqual(funcs, in_manual)
 
     def test_error_codes(self):

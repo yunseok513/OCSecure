@@ -1,6 +1,6 @@
--- OCS-LITE step 2 (run as LITE_OWNER)
+-- OCS-LITE step 2 (run as SFC_OWNER)
 --
--- Key table. Only LITE_OWNER owns it and nobody else is granted access.
+-- Key table. Only SFC_OWNER owns it and nobody else is granted access.
 -- The root key is never stored in clear: it is wrapped with a key derived from
 -- the seal kept in package LITE_SEAL (see 21_seal.sql).
 

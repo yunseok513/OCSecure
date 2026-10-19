@@ -1,4 +1,4 @@
--- OCS-LITE step 3 (run as LITE_OWNER)
+-- OCS-LITE step 3 (run as SFC_OWNER)
 --
 -- Creates package LITE_SEAL holding a random 32-byte seal that wraps the root keys
 -- stored in LITE_KEY. It is generated once, here, and is NOT regenerated when

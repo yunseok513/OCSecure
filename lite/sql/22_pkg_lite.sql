@@ -1,4 +1,4 @@
--- OCS-LITE step 4 (run as LITE_OWNER)
+-- OCS-LITE step 4 (run as SFC_OWNER)
 --
 -- PKG_LITE: the whole module in one package.
 --
@@ -8,7 +8,7 @@
 -- Strings are always UTF-8 regardless of the database character set.
 -- Stored form is the upper-case hex of the blob: a 13-char value gives 136 hex chars.
 --
--- Nobody but the owner is granted this package. Applications call the LITE_*
+-- Nobody but the owner is granted this package. Applications call the FN_SFC_*
 -- functions of 23_functions.sql, which are the only entry points.
 --
 -- Errors (all raised, never swallowed):

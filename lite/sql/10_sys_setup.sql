@@ -14,15 +14,15 @@ SET SERVEROUTPUT ON
 DEFINE owner_pwd = '&1'
 DEFINE ts_name   = '&2'
 
-CREATE USER LITE_OWNER IDENTIFIED BY "&owner_pwd"
+CREATE USER SFC_OWNER IDENTIFIED BY "&owner_pwd"
   DEFAULT TABLESPACE &ts_name
   QUOTA 50M ON &ts_name;
 
-GRANT CREATE SESSION, CREATE TABLE, CREATE SEQUENCE, CREATE PROCEDURE TO LITE_OWNER;
+GRANT CREATE SESSION, CREATE TABLE, CREATE SEQUENCE, CREATE PROCEDURE TO SFC_OWNER;
 
 -- DBMS_CRYPTO is not granted to PUBLIC. This grant is the only privilege the
 -- module needs from SYS. If the site refuses it, the module cannot be installed.
-GRANT EXECUTE ON SYS.DBMS_CRYPTO TO LITE_OWNER;
+GRANT EXECUTE ON SYS.DBMS_CRYPTO TO SFC_OWNER;
 
 PROMPT
-PROMPT LITE_OWNER created. Next: connect as LITE_OWNER and run 20_key_table.sql
+PROMPT SFC_OWNER created. Next: connect as SFC_OWNER and run 20_key_table.sql

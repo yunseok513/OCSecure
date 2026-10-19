@@ -7,11 +7,11 @@
 | 순서 | 계정 | 파일 |
 |---|---|---|
 | 1 | SYS | `@10_sys_setup.sql <소유계정 암호> <테이블스페이스>` |
-| 2 | LITE_OWNER | `@20_key_table.sql` |
-| 3 | LITE_OWNER | `@21_seal.sql` (한 번만. 두 번째는 스스로 거부) |
-| 4 | LITE_OWNER | `@22_pkg_lite.sql` 그리고 `@23_functions.sql` |
-| 5 | LITE_OWNER | `@30_init_key.sql` |
-| 6 | LITE_OWNER | `@50_selftest.sql` (FAIL 이 한 줄이라도 있으면 배포하지 않음) |
+| 2 | SFC_OWNER | `@20_key_table.sql` |
+| 3 | SFC_OWNER | `@21_seal.sql` (한 번만. 두 번째는 스스로 거부) |
+| 4 | SFC_OWNER | `@22_pkg_lite.sql` 그리고 `@23_functions.sql` |
+| 5 | SFC_OWNER | `@30_init_key.sql` |
+| 6 | SFC_OWNER | `@50_selftest.sql` (FAIL 이 한 줄이라도 있으면 배포하지 않음) |
 | 7 | SYS | `@40_connect_app.sql <업무 스키마>` |
 
 5번 뒤에는 데이터베이스 전체를 백업합니다. 봉인값과 키를 잃으면 암호화된 자료를 복구할 방법이 없습니다.
@@ -19,9 +19,9 @@
 ## 사용
 
 ```sql
-INSERT INTO t (rrn_enc, pw_hash) VALUES (LITE_ENC('9001011234567'), LITE_PWD_HASH('pw'));
-SELECT LITE_DEC(rrn_enc), LITE_MASK(rrn_enc, 'RRN') FROM t;
-SELECT LITE_PWD_VERIFY('pw', pw_hash) FROM t;   -- 1 또는 0
+INSERT INTO t (rrn_enc, pw_hash) VALUES (FN_SFC_ENC('9001011234567'), FN_SFC_PWD_HASH('pw'));
+SELECT FN_SFC_DEC(rrn_enc), FN_SFC_MASK(rrn_enc, 'RRN') FROM t;
+SELECT FN_SFC_PWD_VERIFY('pw', pw_hash) FROM t;   -- 1 또는 0
 ```
 
 암호문 컬럼은 `VARCHAR2`이며 주민등록번호는 136, 계좌번호(20자)는 168, 비밀번호 해시는 108 이상으로 잡습니다. 자세한 표는 `docs/03_구성설계.md`에 있습니다.
