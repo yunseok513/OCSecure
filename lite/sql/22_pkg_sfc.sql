@@ -33,6 +33,11 @@ CREATE OR REPLACE PACKAGE PKG_SFC AS
   -- 바꾸려면 이 값을 고치고, 이 패키지를 다시 컴파일하고, 안내서 4.2절의 숫자를 고칩니다.
   c_pwd_iterations CONSTANT PLS_INTEGER := 10000;
 
+  -- 반복 횟수의 상한입니다. 권장값이 아니라 안전 울타리입니다. 만들 때 이보다 큰 값은 거부하고,
+  -- 확인할 때 저장값에 이보다 큰 횟수가 적혀 있으면 계산하지 않고 불일치(0)로 처리합니다.
+  -- 손상되었거나 임의로 만든 저장값 때문에 데이터베이스가 오래 계산하는 일을 막습니다.
+  c_pwd_iter_max   CONSTANT PLS_INTEGER := 2000000;
+
   -- ===== 식별번호 (양방향) =================================================
   -- 응용은 이 패키지가 아니라 FN_SFC_* 함수를 호출합니다.
 
@@ -72,11 +77,11 @@ CREATE OR REPLACE PACKAGE PKG_SFC AS
   -- pwd_hash_hex: 비밀번호로 저장할 값을 만듭니다. 이 값에서 비밀번호를 되돌릴 수 없습니다.
   --   p_password  비밀번호. NULL 이나 빈 문자열은 거부합니다.
   --   p_salt      시험 전용입니다. NULL 로 두면 호출마다 새 난수를 씁니다.
-  --   p_iter      반복 횟수. NULL 이면 c_pwd_iterations 를 씁니다. 소유 계정은 이 값을 지정해
-  --               아무것도 바꾸지 않고 후보 횟수의 소요 시간을 잴 수 있습니다.
+  --   p_iter      반복 횟수. NULL 이면 c_pwd_iterations 를 씁니다. 1 이상 c_pwd_iter_max 이하.
+  --               소유 계정은 이 값을 지정해 아무것도 바꾸지 않고 후보 횟수의 소요 시간을 잴 수 있습니다.
   -- 반환          108자 16진 문자열. 같은 비밀번호도 호출마다 결과가 다른 것이 정상입니다.
   --               비밀번호 확인은 pwd_verify_hex 로 합니다.
-  -- 오류          -20601 빈 비밀번호, 반복 횟수가 1 미만, 솔트가 16바이트가 아님.
+  -- 오류          -20601 빈 비밀번호, 반복 횟수가 허용 범위 밖, 솔트가 16바이트가 아님.
   FUNCTION pwd_hash_hex(p_password IN VARCHAR2,
                         p_salt     IN RAW         DEFAULT NULL,
                         p_iter     IN PLS_INTEGER DEFAULT NULL) RETURN VARCHAR2;
@@ -84,8 +89,8 @@ CREATE OR REPLACE PACKAGE PKG_SFC AS
   -- pwd_verify_hex: 저장된 값과 비밀번호가 맞는지 확인합니다.
   --   p_password    사용자가 입력한 비밀번호.
   --   p_stored_hex  pwd_hash_hex 로 만든 값.
-  -- 반환            맞으면 1, 아니면 0. 인자가 NULL 이거나 저장값이 깨져 있어도 0 이며,
-  --                 잘못된 입력에 대해 오류를 던지지 않습니다.
+  -- 반환            맞으면 1, 아니면 0. 인자가 NULL 이거나 저장값이 깨져 있거나 저장값의 반복 횟수가
+  --                 허용 범위 밖이어도 0 이며, 잘못된 입력에 대해 오류를 던지지 않습니다.
   FUNCTION pwd_verify_hex(p_password IN VARCHAR2, p_stored_hex IN VARCHAR2) RETURN NUMBER;
 
   -- ===== 키 관리 (소유 계정으로 실행, 호출마다 커밋) =======================
@@ -470,8 +475,8 @@ CREATE OR REPLACE PACKAGE BODY PKG_SFC AS
     END IF;
     v_salt := NVL(p_salt, DBMS_CRYPTO.RANDOMBYTES(c_pwd_salt_len));
     v_iter := NVL(p_iter, c_pwd_iterations);
-    IF v_iter < 1 THEN
-      fail(e_bad_arg, 'iterations must be at least 1');
+    IF v_iter < 1 OR v_iter > c_pwd_iter_max THEN
+      fail(e_bad_arg, 'iterations out of range');
     END IF;
     IF UTL_RAW.LENGTH(v_salt) <> c_pwd_salt_len THEN
       fail(e_bad_arg, 'salt must be 16 bytes');
@@ -503,7 +508,7 @@ CREATE OR REPLACE PACKAGE BODY PKG_SFC AS
       RETURN 0;
     END IF;
     v_iter := int_of(UTL_RAW.SUBSTR(v_stored, 3, 4));
-    IF v_iter < 1 THEN
+    IF v_iter < 1 OR v_iter > c_pwd_iter_max THEN
       RETURN 0;
     END IF;
     v_salt := UTL_RAW.SUBSTR(v_stored, 7, c_pwd_salt_len);
@@ -515,6 +520,24 @@ CREATE OR REPLACE PACKAGE BODY PKG_SFC AS
   END pwd_verify_hex;
 
 END PKG_SFC;
+/
+
+SET SERVEROUTPUT ON
+
+-- 컴파일 오류가 있으면 내용을 보여 주고 설치를 멈춥니다. 패키지의 컴파일 오류는 SQL 오류가
+-- 아니라 경고로만 나오므로, 오류를 직접 확인해야 합니다.
+DECLARE
+  v_n NUMBER := 0;
+BEGIN
+  FOR r IN (SELECT name, type, line, position, text FROM user_errors
+             WHERE attribute = 'ERROR' AND name = 'PKG_SFC' ORDER BY type, sequence) LOOP
+    v_n := v_n + 1;
+    DBMS_OUTPUT.PUT_LINE(r.type || ' ' || r.name || ' line ' || r.line || ': ' || r.text);
+  END LOOP;
+  IF v_n > 0 THEN
+    RAISE_APPLICATION_ERROR(-20998, 'PKG_SFC has compile errors (see above). Do not continue.');
+  END IF;
+END;
 /
 
 SELECT object_name, object_type, status FROM user_objects

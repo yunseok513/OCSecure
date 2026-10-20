@@ -173,7 +173,8 @@ class StaticChecks(unittest.TestCase):
     def test_every_unit_terminated(self):
         for name in ('22_pkg_sfc.sql', '23_functions.sql'):
             text = lint_plsql.strip_comments(read(name))
-            creates = len(re.findall(r'^\s*CREATE\s+OR\s+REPLACE\b', text, re.I | re.M))
+            creates = len(re.findall(r'^\s*CREATE\s+OR\s+REPLACE\b', text, re.I | re.M)) \
+                + len(re.findall(r'^DECLARE\b', text, re.M))
             slashes = len(re.findall(r'^\s*/\s*$', text, re.M))
             self.assertEqual(creates, slashes, name)
 
@@ -311,6 +312,65 @@ class PackageBuilder(unittest.TestCase):
                 mod.check_sql_list()
         finally:
             shutil.rmtree(fake, ignore_errors=True)
+
+
+class ReviewFindings(unittest.TestCase):
+    """Regression tests for the external review (2026-10-20)."""
+
+    manual = open(os.path.join(ROOT, 'lite', 'docs', '04_안내서.md'), encoding='utf-8').read()
+
+    def test_install_scripts_never_reset_exit_on_error(self):
+        # 05 turns on exit-on-error and must not turn it off again
+        code = lint_plsql.strip_comments(read('05_check_charset.sql'))
+        self.assertIn('WHENEVER SQLERROR EXIT FAILURE', code)
+        self.assertNotIn('WHENEVER SQLERROR CONTINUE', code)
+        for name in sorted(os.listdir(SQL_DIR)):
+            if name.endswith('.sql'):
+                self.assertNotIn('WHENEVER SQLERROR CONTINUE', read(name), name)
+
+    def test_compile_errors_stop_the_install(self):
+        for name in ('22_pkg_sfc.sql', '23_functions.sql'):
+            code = lint_plsql.strip_comments(read(name))
+            self.assertIn("FROM user_errors", code, name)
+            self.assertIn("attribute = 'ERROR'", code, name)
+            self.assertIn('RAISE_APPLICATION_ERROR(-20998', code, name)
+
+    def test_selftest_ends_with_an_error_when_a_check_fails(self):
+        code = lint_plsql.strip_comments(read('50_selftest.sql'))
+        self.assertIn('RAISE_APPLICATION_ERROR(-20990', code)
+        self.assertLess(code.index('SELFTEST FAILED'), code.index('RAISE_APPLICATION_ERROR(-20990'))
+
+    def test_password_iteration_fence(self):
+        code = lint_plsql.strip_comments(read('22_pkg_sfc.sql'))
+        m = re.search(r'c_pwd_iter_max\s+CONSTANT PLS_INTEGER := (\d+);', code)
+        self.assertIsNotNone(m)
+        self.assertGreater(int(m.group(1)), 600000)           # room above the usual recommendation
+        self.assertGreaterEqual(code.count('v_iter > c_pwd_iter_max'), 2)   # hash and verify
+        self.assertIn('c_pwd_iter_max', read('50_selftest.sql'))
+        self.assertIn(m.group(1), self.manual)
+
+    def test_forged_iteration_vector_is_well_formed(self):
+        """The selftest builds a 54-byte stored value with 0x7FFFFFFF rounds."""
+        sql = read('50_selftest.sql')
+        m = re.search(r"pwd_verify_hex\('x', '(01017FFFFFFF[0-9A-F]+)' \|\| RPAD\('0', (\d+), '0'\)\) = 0", sql)
+        self.assertIsNotNone(m)
+        self.assertEqual((len(m.group(1)) + int(m.group(2))) // 2, 54)
+
+    def test_manual_verification_sql_catches_unconverted_rows(self):
+        self.assertIn('(rrn_enc IS NULL OR FN_SFC_DEC(rrn_enc) <> rrn)', self.manual)
+        self.assertNotIn('AND FN_SFC_DEC(rrn_enc) <> rrn;', self.manual)
+
+    def test_manual_does_not_claim_protection_after_decryption(self):
+        self.assertNotIn('화면이나 로그로의 노출이 이에 해당', self.manual)
+        self.assertIn('복호화한 뒤 화면, 파일, 로그에 출력한 내용은 보호하지 않습니다', self.manual)
+        with open(os.path.join(ROOT, 'lite', 'docs', '02_설계결정.md'), encoding='utf-8') as fh:
+            self.assertNotIn('화면이나 로그에 노출되는 경우가 이에 해당', fh.read())
+
+    def test_manual_asks_for_the_four_acceptance_checks(self):
+        for phrase in ('여섯 함수를 호출해 보았다', '재기동한 뒤 기존 암호문이 복호화된다',
+                       '키를 교체한 뒤 이전 암호문과 새 암호문이 모두 복호화된다',
+                       '복구한 별도 시험 데이터베이스'):
+            self.assertIn(phrase, self.manual)
 
 
 if __name__ == '__main__':

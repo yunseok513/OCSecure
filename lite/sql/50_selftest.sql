@@ -94,6 +94,11 @@ BEGIN
   chk('A12 password verify (wrong)', PKG_SFC.pwd_verify_hex('!Pass-Word2', e_pwd) = 0);
   chk('A13 password verify (garbage stored value)', PKG_SFC.pwd_verify_hex('x', 'ZZ') = 0);
   chk('A14 password verify (NULL)', PKG_SFC.pwd_verify_hex(NULL, e_pwd) = 0);
+  -- 반복 횟수가 터무니없이 큰 저장값은 계산하지 않고 바로 불일치로 처리해야 합니다.
+  chk('A15a forged iteration count is refused without computing (0)',
+      PKG_SFC.pwd_verify_hex('x', '01017FFFFFFF11111111111111111111111111111111' || RPAD('0', 64, '0')) = 0);
+  chk('A15b hashing with rounds above the limit is refused (-20601)',
+      code_of('BEGIN DBMS_OUTPUT.PUT(PKG_SFC.pwd_hash_hex(''x'', NULL, ' || (PKG_SFC.c_pwd_iter_max + 1) || ')); END;') = -20601);
   chk('A15 empty password refused (-20601)',
       code_of('BEGIN DBMS_OUTPUT.PUT(LENGTH(PKG_SFC.pwd_hash_hex(NULL))); END;') = -20601);
 
@@ -135,6 +140,8 @@ BEGIN
     DBMS_OUTPUT.PUT_LINE('OCS-LITE SELFTEST OK');
   ELSE
     DBMS_OUTPUT.PUT_LINE('OCS-LITE SELFTEST FAILED: do not deliver');
+    -- 출력을 놓쳐도 실패가 정상 종료로 보이지 않도록 오류로 끝냅니다.
+    RAISE_APPLICATION_ERROR(-20990, 'OCS-LITE selftest failed: ' || g_fail || ' check(s). Do not deliver.');
   END IF;
 END;
 /

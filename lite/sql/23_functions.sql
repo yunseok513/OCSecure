@@ -75,6 +75,23 @@ BEGIN
 END FN_SFC_READY;
 /
 
+SET SERVEROUTPUT ON
+
+-- 컴파일 오류가 있으면 내용을 보여 주고 설치를 멈춥니다.
+DECLARE
+  v_n NUMBER := 0;
+BEGIN
+  FOR r IN (SELECT name, line, position, text FROM user_errors
+             WHERE attribute = 'ERROR' AND name LIKE 'FN\_SFC\_%' ESCAPE '\' ORDER BY name, sequence) LOOP
+    v_n := v_n + 1;
+    DBMS_OUTPUT.PUT_LINE(r.name || ' line ' || r.line || ': ' || r.text);
+  END LOOP;
+  IF v_n > 0 THEN
+    RAISE_APPLICATION_ERROR(-20998, 'FN_SFC_* functions have compile errors (see above). Do not continue.');
+  END IF;
+END;
+/
+
 SELECT object_name, status FROM user_objects
  WHERE object_name LIKE 'FN\_SFC\_%' ESCAPE '\' AND object_type = 'FUNCTION'
  ORDER BY object_name;
