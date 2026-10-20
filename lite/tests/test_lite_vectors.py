@@ -357,8 +357,10 @@ class ReviewFindings(unittest.TestCase):
         self.assertEqual((len(m.group(1)) + int(m.group(2))) // 2, 54)
 
     def test_manual_verification_sql_catches_unconverted_rows(self):
-        self.assertIn('(rrn_enc IS NULL OR FN_SFC_DEC(rrn_enc) <> rrn)', self.manual)
-        self.assertNotIn('AND FN_SFC_DEC(rrn_enc) <> rrn;', self.manual)
+        # NULL on either side must be counted: DECODE treats two NULLs as equal and anything else as different
+        self.assertIn('DECODE(FN_SFC_DEC(rrn_enc), rrn, 0, 1) = 1', self.manual)
+        self.assertNotIn('FN_SFC_DEC(rrn_enc) <> rrn', self.manual)
+        self.assertNotIn('rrn IS NOT NULL\n   AND', self.manual)
 
     def test_manual_does_not_claim_protection_after_decryption(self):
         self.assertNotIn('화면이나 로그로의 노출이 이에 해당', self.manual)
@@ -371,6 +373,42 @@ class ReviewFindings(unittest.TestCase):
                        '키를 교체한 뒤 이전 암호문과 새 암호문이 모두 복호화된다',
                        '복구한 별도 시험 데이터베이스'):
             self.assertIn(phrase, self.manual)
+
+
+class SecondReviewFindings(unittest.TestCase):
+    """Regression tests for the second external review (2026-10-20)."""
+
+    manual = open(os.path.join(ROOT, 'lite', 'docs', '04_안내서.md'), encoding='utf-8').read()
+
+    def test_decode_semantics_match_the_claim(self):
+        """Model of Oracle DECODE(expr, search, 0, 1) = 1 over the four NULL combinations."""
+        def decode_differs(dec, rrn):          # None stands for NULL; DECODE treats NULL = NULL
+            return 0 if dec == rrn else 1
+        self.assertEqual(decode_differs(None, None), 0)          # nothing to convert, nothing stored
+        self.assertEqual(decode_differs(None, '9001011234567'), 1)   # not converted
+        self.assertEqual(decode_differs('9001011234567', None), 1)   # original removed, ciphertext left
+        self.assertEqual(decode_differs('9001011234567', '9001011234567'), 0)
+        self.assertEqual(decode_differs('9001011234568', '9001011234567'), 1)
+
+    def test_conversion_is_limited_to_the_write_stopped_procedure(self):
+        self.assertIn('쓰기를 멈춘 상태에서', self.manual)
+        self.assertNotIn('멈출 수 없다면 응용을 바꾼 직후', self.manual)
+        self.assertIn('쓰기를 재개하기 전에', self.manual)
+
+    def test_recompile_procedure_mentions_session_state(self):
+        self.assertIn('ORA-04068', self.manual)
+        self.assertIn('연결 풀', self.manual)
+        self.assertNotIn('다시 컴파일해도 안전합니다', self.manual)
+        self.assertIn('키와 저장된 자료는 그대로', self.manual)
+        # the claim only holds because the package really keeps per-session state
+        self.assertIn('g_cache', read('22_pkg_sfc.sql'))
+
+    def test_compatibility_with_full_edition_is_not_overstated(self):
+        with open(os.path.join(ROOT, 'lite', 'docs', '03_구성설계.md'), encoding='utf-8') as fh:
+            doc = fh.read()
+        self.assertNotIn('데이터를 변환하지 않아도 됩니다', doc)
+        self.assertIn('자동으로 호환된다는 뜻은 아닙니다', doc)
+        self.assertNotIn('서로 옮길 수 있습니다', read('22_pkg_sfc.sql'))
 
 
 if __name__ == '__main__':
