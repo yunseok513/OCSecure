@@ -11,6 +11,8 @@
 
 SET SERVEROUTPUT ON
 
+-- SFC_SEAL: internal to the module. Do not call it, do not grant it to anyone, do not drop it.
+-- Dropping or recreating it makes every stored key unreadable.
 CREATE OR REPLACE PACKAGE SFC_SEAL AS
   FUNCTION get_seal RETURN RAW;
 END SFC_SEAL;

@@ -18,36 +18,98 @@
 
 CREATE OR REPLACE PACKAGE PKG_SFC AS
 
+  -- Error numbers raised by this package (see the manual, chapter 7).
+  --   e_bad_arg     the call itself is wrong: empty password, text too long, unknown mask type
+  --   e_no_key      no active key yet, key id not found, or the key table does not match the seal
+  --   e_integrity   the ciphertext was altered or was made with another key
+  --   e_bad_format  the value is not a ciphertext of this module (not hex, too short, wrong version)
+  --   e_state       init_key run twice, or rotate_key run before init_key
   e_bad_arg    CONSTANT PLS_INTEGER := -20601;
   e_no_key     CONSTANT PLS_INTEGER := -20602;
   e_integrity  CONSTANT PLS_INTEGER := -20603;
   e_bad_format CONSTANT PLS_INTEGER := -20604;
   e_state      CONSTANT PLS_INTEGER := -20605;
 
-  -- PBKDF2 rounds for new password hashes. The value is stored inside each hash,
-  -- so it can be raised later without invalidating existing hashes.
+  -- Number of PBKDF2 rounds used for NEW password hashes.
+  -- Existing hashes keep the number they were made with and stay valid.
+  -- To change it: edit this value, recompile this package, update the manual (section 4.2).
   c_pwd_iterations CONSTANT PLS_INTEGER := 10000;
 
-  -- Two-way (identification numbers) --------------------------------------
-  -- p_iv is for fixed test vectors only. Leave it NULL in real use.
+  -- ===== Identification numbers (two-way) ==================================
+  -- Applications should call the FN_SFC_* functions, not this package.
+
+  -- encrypt_hex: protect a short text such as a resident registration number or account number.
+  --   p_plain  the text. NULL in, NULL out. At most 1900 bytes in UTF-8 (Korean = 3 bytes per character).
+  --   p_iv     for tests only. Leave NULL; a new random value is used on every call.
+  -- Returns    upper-case hex string. A 13-character value gives 136 characters, so size the
+  --            target column accordingly (manual, chapter 2). The same text gives a different
+  --            result on every call, so the result cannot be used in a WHERE condition.
+  -- Raises     -20601 text too long, -20602 no usable key.
   FUNCTION encrypt_hex(p_plain IN VARCHAR2, p_iv IN RAW DEFAULT NULL) RETURN VARCHAR2;
+
+  -- decrypt_hex: get the original text back from a value made by encrypt_hex.
+  --   p_hex    the stored value. NULL in, NULL out.
+  -- Returns    the original text.
+  -- Raises     -20604 not a value of this module (for example a column that is too short and
+  --            cut the value), -20603 altered value, -20602 key not found.
   FUNCTION decrypt_hex(p_hex   IN VARCHAR2) RETURN VARCHAR2;
-  -- p_type: RRN | ACCOUNT | ALL
+
+  -- mask_hex: decrypt a stored value and return it with part of it hidden.
+  --   p_hex    the stored value. NULL in, NULL out.
+  --   p_type   RRN      13 digits: first 6 digits, hyphen, then 7 asterisks (900101-*******)
+  --                     other lengths: all hidden
+  --            ACCOUNT  first 4 characters shown, the rest replaced by asterisks
+  --                     4 characters or fewer: all hidden
+  --            ALL      always ********   (default)
+  -- Returns    the masked text.
+  -- Raises     -20601 unknown p_type, plus the errors of decrypt_hex.
   FUNCTION mask_hex(p_hex IN VARCHAR2, p_type IN VARCHAR2 DEFAULT 'ALL') RETURN VARCHAR2;
+
+  -- mask_value: same masking as mask_hex, for a plain text you already have.
+  --   p_plain  the plain text. NULL in, NULL out.
+  --   p_type   RRN | ACCOUNT | ALL, as in mask_hex.
+  -- Raises     -20601 unknown p_type.
   FUNCTION mask_value(p_plain IN VARCHAR2, p_type IN VARCHAR2 DEFAULT 'ALL') RETURN VARCHAR2;
 
-  -- One-way (passwords) ---------------------------------------------------
+  -- ===== Passwords (one-way) ===============================================
+
+  -- pwd_hash_hex: make the value to store for a password. It cannot be turned back into the password.
+  --   p_password  the password. NULL or empty is refused.
+  --   p_salt      for tests only. Leave NULL; a new random value is used on every call.
+  --   p_iter      number of rounds. Leave NULL to use c_pwd_iterations. The owner may pass a number
+  --               to time a candidate value without changing anything.
+  -- Returns       108-character hex string. Calling twice with the same password gives different
+  --               results; that is expected. Use pwd_verify_hex to check a password.
+  -- Raises        -20601 empty password, rounds below 1, or salt that is not 16 bytes.
   FUNCTION pwd_hash_hex(p_password IN VARCHAR2,
                         p_salt     IN RAW         DEFAULT NULL,
                         p_iter     IN PLS_INTEGER DEFAULT NULL) RETURN VARCHAR2;
+
+  -- pwd_verify_hex: check a password against the stored value.
+  --   p_password    the password the user typed.
+  --   p_stored_hex  the value made by pwd_hash_hex.
+  -- Returns         1 when it matches, otherwise 0. A NULL argument or a damaged stored value
+  --                 also gives 0; this function does not raise for bad input.
   FUNCTION pwd_verify_hex(p_password IN VARCHAR2, p_stored_hex IN VARCHAR2) RETURN NUMBER;
 
-  -- Key management (owner only, commits) ----------------------------------
-  PROCEDURE init_key;
-  PROCEDURE rotate_key;
-  FUNCTION  is_ready RETURN NUMBER;   -- 1 when an active key can be loaded, else 0
+  -- ===== Key management (run as the owner account; each call commits) ======
 
-  -- Test hooks, used by 50_selftest.sql ------------------------------------
+  -- init_key: create the first key. Run once, right after installation (30_init_key.sql).
+  --           Back up the database afterwards.
+  -- Raises    -20605 when a key already exists.
+  PROCEDURE init_key;
+
+  -- rotate_key: start using a new key. The previous key is kept so older data still decrypts.
+  --             Existing data keeps the old key until it is encrypted again (manual, chapter 6).
+  -- Raises      -20605 when no key exists yet.
+  PROCEDURE rotate_key;
+
+  -- is_ready: 1 when encryption can be used right now, otherwise 0. Never raises.
+  --           Suitable for monitoring.
+  FUNCTION  is_ready RETURN NUMBER;
+
+  -- ===== Test hooks ========================================================
+  -- Used only by 50_selftest.sql. Not for application use.
   FUNCTION derive(p_root IN RAW, p_label IN VARCHAR2) RETURN RAW;
   FUNCTION pack_with_root(p_root IN RAW, p_key_id IN PLS_INTEGER,
                           p_plain IN VARCHAR2, p_iv IN RAW DEFAULT NULL) RETURN RAW;

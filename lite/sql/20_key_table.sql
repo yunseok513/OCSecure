@@ -23,3 +23,10 @@ CREATE SEQUENCE SFC_KEY_SEQ START WITH 1 INCREMENT BY 1 MAXVALUE 65535 NOCYCLE N
 
 COMMENT ON TABLE SFC_KEY IS
   'OCS-LITE root keys. ACTIVE encrypts new data, OLD is kept only to decrypt older data.';
+
+COMMENT ON COLUMN SFC_KEY.key_id IS
+  'Key number. It is written into every ciphertext (characters 5 to 8 of the hex value).';
+COMMENT ON COLUMN SFC_KEY.key_state IS
+  'ACTIVE = used for new data. OLD = kept only to decrypt older data. Never delete OLD rows.';
+COMMENT ON COLUMN SFC_KEY.root_wrapped IS
+  'The root key, stored protected. Do not copy this table to another database without SFC_SEAL.';
