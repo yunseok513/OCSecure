@@ -1,8 +1,9 @@
--- OCS-LITE step 2 (run as SFC_OWNER)
+@@05_check_charset.sql
+-- OCS-LITE 2단계 (SFC_OWNER 로 접속)
 --
--- Key table. Only SFC_OWNER owns it and nobody else is granted access.
--- The root key is never stored in clear: it is wrapped with a key derived from
--- the seal kept in package SFC_SEAL (see 21_seal.sql).
+-- 키 테이블입니다. SFC_OWNER 만 소유하며 다른 계정에는 어떤 권한도 주지 않습니다.
+-- 루트 키는 평문으로 저장하지 않고, SFC_SEAL 패키지의 봉인값으로 감싸서 저장합니다
+-- (21_seal.sql 참조).
 
 CREATE TABLE SFC_KEY (
   key_id        NUMBER(5)     NOT NULL,
@@ -15,7 +16,7 @@ CREATE TABLE SFC_KEY (
   CONSTRAINT ck_sfc_key_id    CHECK (key_id BETWEEN 1 AND 65535)
 );
 
--- At most one ACTIVE key. Two active keys would make the encryption key ambiguous.
+-- ACTIVE 상태의 키는 하나만 허용합니다.
 CREATE UNIQUE INDEX ux_sfc_key_active
   ON SFC_KEY (CASE WHEN key_state = 'ACTIVE' THEN 1 END);
 

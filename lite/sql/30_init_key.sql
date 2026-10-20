@@ -1,7 +1,8 @@
--- OCS-LITE step 6 (run as SFC_OWNER)
+@@05_check_charset.sql
+-- OCS-LITE 6단계 (SFC_OWNER 로 접속)
 --
--- Creates the first root key. Run it once. Back up the database afterwards:
--- data encrypted with a key that is lost cannot be recovered by anyone.
+-- 첫 루트 키를 만듭니다. 한 번만 실행합니다. 끝나면 데이터베이스를 백업하십시오.
+-- 키를 잃으면 그 키로 암호화한 자료는 누구도 복구할 수 없습니다.
 
 SET SERVEROUTPUT ON
 

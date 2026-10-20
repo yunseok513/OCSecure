@@ -1,5 +1,6 @@
--- OCS-LITE: take the module away from one business schema (run as SYS)
--- Usage:  @41_disconnect_app.sql <app_schema>
+@@05_check_charset.sql
+-- OCS-LITE: 업무 스키마 하나에서 모듈 사용 권한을 회수합니다 (SYS 로 접속).
+-- 사용법:  @41_disconnect_app.sql <업무 스키마>
 
 SET VERIFY OFF
 DEFINE app = '&1'

@@ -14,6 +14,8 @@
 | 6 | SFC_OWNER | `@50_selftest.sql` (FAIL 이 한 줄이라도 있으면 배포하지 않음) |
 | 7 | SYS | `@40_connect_app.sql <업무 스키마>` |
 
+SQL 파일은 CP949로 저장되어 있으므로 SQL*Plus 창에서 `NLS_LANG=KOREAN_KOREA.KO16MSWIN949`를 먼저 맞춥니다. 어긋나면 모든 스크립트가 첫 줄의 `05_check_charset.sql`에서 멈춥니다. 저장소의 원본은 UTF-8이고, CP949로 바꾸는 일은 패키지를 만들 때 자동으로 합니다.
+
 5번 뒤에는 데이터베이스 전체를 백업합니다. 봉인값과 키를 잃으면 암호화된 자료를 복구할 방법이 없습니다.
 
 ## 사용
@@ -46,4 +48,4 @@ python3 lite/tools/make_lite_package.py
 python3 -W ignore -I -m unittest discover -s lite/tests
 ```
 
-고정 시험 벡터가 파이썬 참조 구현과 일치하는지, SQL 이 ASCII 만 쓰는지, 패키지 명세와 본문이 맞는지를 봅니다. 컴파일과 실행을 대신하지는 못합니다.
+고정 시험 벡터가 파이썬 참조 구현과 일치하는지, SQL 코드(주석 밖)가 ASCII 만 쓰고 주석이 CP949 로 표현되는지, 패키지 명세와 본문이 맞는지를 봅니다. 컴파일과 실행을 대신하지는 못합니다.

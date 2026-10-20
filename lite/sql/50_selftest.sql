@@ -1,9 +1,10 @@
--- OCS-LITE self test (run as SFC_OWNER, after steps 1 to 6)
+@@05_check_charset.sql
+-- OCS-LITE 자체 시험 (SFC_OWNER 로 접속, 1~6단계를 마친 뒤 실행)
 --
--- Part A needs no key and compares PKG_SFC with fixed vectors computed outside
--- Oracle by lite/tests/lite_ref.py (python test: lite/tests/test_lite_vectors.py).
--- Part B uses the live key and writes nothing to any table.
--- Any FAIL line means: do not deliver.
+-- A부는 키가 필요 없습니다. 오라클 밖에서 파이썬 기준 구현(lite/tests/lite_ref.py)으로
+-- 계산해 둔 고정값과 PKG_SFC 의 결과를 대조합니다.
+-- B부는 실제 키를 쓰지만 어떤 테이블에도 쓰지 않습니다.
+-- FAIL 이 한 줄이라도 있으면 배포하지 마십시오.
 
 SET SERVEROUTPUT ON SIZE UNLIMITED
 SET FEEDBACK OFF
@@ -40,7 +41,7 @@ DECLARE
     END IF;
   END chk;
 
-  -- runs a statement block and returns the error code it raises, 0 when none
+  -- 문장을 실행하고 발생한 오류 번호를 돌려줍니다. 오류가 없으면 0 입니다.
   FUNCTION code_of(p_sql IN VARCHAR2) RETURN NUMBER IS
   BEGIN
     EXECUTE IMMEDIATE p_sql;
@@ -64,7 +65,7 @@ BEGIN
   chk('A7 blob round trip', PKG_SFC.unpack_with_root(k_root, HEXTORAW(e_ko)) = v_ko);
   chk('A8 length of a 13 char value is 136 hex chars', LENGTH(e_rrn) = 136);
 
-  -- flip the last byte of the tag: must be refused before any decryption
+  -- 태그의 마지막 바이트를 뒤집습니다. 복호화 전에 거부되어야 합니다.
   v_blob := HEXTORAW(e_rrn);
   v_blob := UTL_RAW.CONCAT(UTL_RAW.SUBSTR(v_blob, 1, UTL_RAW.LENGTH(v_blob) - 1),
                            UTL_RAW.BIT_XOR(UTL_RAW.SUBSTR(v_blob, UTL_RAW.LENGTH(v_blob), 1), HEXTORAW('01')));
@@ -76,7 +77,7 @@ BEGIN
   END;
   chk('A9 tampered tag is refused (-20603)', v_code = -20603);
 
-  -- flip a ciphertext byte: the tag no longer matches
+  -- 암호문의 한 바이트를 뒤집습니다. 태그가 맞지 않아야 합니다.
   v_blob := HEXTORAW(e_rrn);
   v_blob := UTL_RAW.CONCAT(UTL_RAW.SUBSTR(v_blob, 1, 20),
                            UTL_RAW.BIT_XOR(UTL_RAW.SUBSTR(v_blob, 21, 1), HEXTORAW('01')),

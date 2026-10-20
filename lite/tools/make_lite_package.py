@@ -12,7 +12,7 @@
 패키지 구성
   안내서.md          lite/docs/04_안내서.md (설치와 유지보수 안내서)
   설계결정.md        lite/docs/02_설계결정.md (방어 한계와 고객 고지 문안)
-  sql/               설치 스크립트 (ASCII 만 쓰므로 CP949 사본이 필요 없다)
+  sql/               설치 스크립트. 저장소 원본은 UTF-8 이며 패키지에는 CP949 로 바꿔 담는다
   tools/verify_manifest.py   온전성 확인 (전체판의 도구를 그대로 쓴다)
   VERSION, MANIFEST.sha256
 
@@ -42,6 +42,7 @@ FILES = {
 
 # 설치에 쓰는 SQL. 번호 순서가 곧 실행 순서다.
 SQL_FILES = [
+    '05_check_charset.sql',
     '10_sys_setup.sql',
     '20_key_table.sql',
     '21_seal.sql',
@@ -88,6 +89,38 @@ def run_tests():
         fail('lite/tests 가 통과하지 않아 패키지를 만들지 않는다.')
     ran = next((l.strip() for l in tail if l.startswith('Ran ')), '')
     log('[정상] lite/tests 통과' + (' (%s)' % ran if ran else ''))
+
+
+def copy_sql(rel_src, dest, rel_dst):
+    """SQL 원본(UTF-8)을 CP949 로 바꿔 담는다. 표현할 수 없는 글자가 있으면 중단한다."""
+    src = os.path.join(ROOT, rel_src)
+    with open(src, encoding='utf-8') as fh:
+        text = fh.read().replace('\r\n', '\n')
+    try:
+        data = text.encode('cp949')
+    except UnicodeEncodeError as e:
+        line = text.count('\n', 0, e.start) + 1
+        fail('%s %d행: CP949 로 표현할 수 없는 글자 %r' % (rel_src, line, text[e.start]))
+    dst = os.path.join(dest, rel_dst)
+    os.makedirs(os.path.dirname(dst), exist_ok=True)
+    with open(dst, 'wb') as fh:
+        fh.write(data)
+
+
+def cp949_malformed(data):
+    """CP949 디코더처럼 바이트를 따라가며, 앞 바이트 뒤에 올바른 뒷 바이트가 없는 자리를 센다."""
+    bad, i = 0, 0
+    while i < len(data):
+        c = data[i]
+        if c < 0x80:
+            i += 1
+        elif i + 1 < len(data) and (0x41 <= data[i + 1] <= 0x5A or 0x61 <= data[i + 1] <= 0x7A
+                                    or 0x81 <= data[i + 1] <= 0xFE):
+            i += 2
+        else:
+            bad += 1
+            i += 1
+    return bad
 
 
 def copy(rel_src, dest, rel_dst):
@@ -148,14 +181,26 @@ def check_manual_paths(dest):
     log('[정상] 안내서가 언급한 SQL 파일 %d개가 모두 패키지에 있다' % len(names))
 
 
-def check_ascii(dest):
-    for f in os.listdir(os.path.join(dest, 'sql')):
+def strip_sql_comments(text):
+    text = re.sub(r'/\*.*?\*/', '', text, flags=re.DOTALL)
+    return re.sub(r'--[^\n]*', '', text)
+
+
+def check_cp949(dest):
+    """담긴 SQL 이 올바른 CP949 이고, 주석을 뺀 코드에는 한글이 없는지 본다(점검용 05 의 한 글자만 예외)."""
+    for f in sorted(os.listdir(os.path.join(dest, 'sql'))):
         with open(os.path.join(dest, 'sql', f), 'rb') as fh:
-            try:
-                fh.read().decode('ascii')
-            except UnicodeDecodeError:
-                fail('SQL 파일에 ASCII 가 아닌 문자가 있다: sql/' + f)
-    log('[정상] SQL 파일은 모두 ASCII 이다')
+            data = fh.read()
+        if cp949_malformed(data):
+            fail('CP949 형식이 깨진 SQL 파일: sql/' + f)
+        text = data.decode('cp949')
+        code = strip_sql_comments(text)
+        extra = [c for c in code if ord(c) > 127]
+        if extra and f != '05_check_charset.sql':
+            fail('SQL 코드(주석 밖)에 한글이나 특수 문자가 있다: sql/%s %r' % (f, ''.join(extra[:5])))
+        if f != '05_check_charset.sql' and not text.startswith('@@05_check_charset.sql'):
+            fail('문자집합 점검 호출이 첫 줄에 없다: sql/' + f)
+    log('[정상] SQL 파일은 모두 올바른 CP949 이며, 코드(주석 밖)는 ASCII 이고, 첫 줄이 문자집합 점검이다')
 
 
 def make_zip(dest, zip_path):
@@ -198,10 +243,10 @@ def main():
     for src, dst in FILES.items():
         copy(src, dest, dst)
     for f in SQL_FILES:
-        copy(os.path.join('lite', 'sql', f), dest, os.path.join('sql', f))
+        copy_sql(os.path.join('lite', 'sql', f), dest, os.path.join('sql', f))
     log('[정상] 파일 %d개를 담았다' % (len(FILES) + len(SQL_FILES)))
 
-    check_ascii(dest)
+    check_cp949(dest)
     check_manual_paths(dest)
 
     with open(os.path.join(dest, 'VERSION'), 'w', encoding='utf-8', newline='\n') as fh:

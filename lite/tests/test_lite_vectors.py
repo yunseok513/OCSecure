@@ -28,6 +28,21 @@ import lint_plsql  # noqa: E402
 SQL_DIR = os.path.join(ROOT, 'lite', 'sql')
 
 
+def cp949_malformed(data):
+    """Walk bytes like a CP949 decoder; count lead bytes without a valid trail byte."""
+    bad, i = 0, 0
+    while i < len(data):
+        if data[i] < 0x80:
+            i += 1
+        elif i + 1 < len(data) and (0x41 <= data[i + 1] <= 0x5A or 0x61 <= data[i + 1] <= 0x7A
+                                    or 0x81 <= data[i + 1] <= 0xFE):
+            i += 2
+        else:
+            bad += 1
+            i += 1
+    return bad
+
+
 def read(name):
     with open(os.path.join(SQL_DIR, name), encoding='utf-8') as f:
         return f.read()
@@ -96,14 +111,47 @@ class Reference(unittest.TestCase):
 class StaticChecks(unittest.TestCase):
     files = sorted(glob.glob(os.path.join(SQL_DIR, '*.sql')))
 
-    def test_ascii_only(self):
+    def test_code_is_ascii_and_comments_fit_cp949(self):
+        """Korean is allowed in comments only, and every character must exist in CP949."""
         for path in self.files:
-            with open(path, 'rb') as f:
-                data = f.read()
+            name = os.path.basename(path)
+            with open(path, encoding='utf-8') as fh:
+                text = fh.read()
             try:
-                data.decode('ascii')
-            except UnicodeDecodeError as e:
-                self.fail('%s has non-ASCII bytes at %d' % (os.path.basename(path), e.start))
+                data = text.encode('cp949')
+            except UnicodeEncodeError as e:
+                self.fail('%s: character not in CP949: %r' % (name, text[e.start]))
+            self.assertEqual(cp949_malformed(data), 0, name)
+            if name != '05_check_charset.sql':
+                code = lint_plsql.strip_comments(text)
+                self.assertEqual([c for c in code if ord(c) > 127], [], name + ': non-ASCII outside comments')
+
+    def test_every_script_starts_with_charset_check(self):
+        for path in self.files:
+            name = os.path.basename(path)
+            if name == '05_check_charset.sql':
+                continue
+            with open(path, 'rb') as fh:
+                first = fh.readline()
+            self.assertEqual(first.strip(), b'@@05_check_charset.sql', name)
+
+    def test_charset_check_runs_before_any_non_ascii_byte(self):
+        with open(os.path.join(SQL_DIR, '05_check_charset.sql'), 'rb') as fh:
+            data = fh.read()
+        first_non_ascii = next(i for i, c in enumerate(data) if c > 127)
+        head = data[:first_non_ascii].decode('ascii')
+        # Any error stops the install, so a garbled probe line cannot let the install go on.
+        self.assertIn('WHENEVER SQLERROR EXIT FAILURE', head)
+        code = lint_plsql.strip_comments(data.decode('utf-8'))
+        self.assertIn("ASCIISTR(v_probe) <> '\\AC00'", code)
+        self.assertIn('RAISE_APPLICATION_ERROR', code)
+        # the probe is the only non-ASCII character in the code part
+        self.assertEqual([c for c in code if ord(c) > 127], ['가'])
+
+    def test_walker_detects_utf8_read_as_cp949(self):
+        """The old failure: UTF-8 Korean read through a CP949 client."""
+        utf8 = read('23_functions.sql').encode('utf-8')
+        self.assertGreater(cp949_malformed(utf8), 0)
 
     def test_package_spec_body_agree(self):
         errs = lint_plsql.check_file(os.path.join(SQL_DIR, '22_pkg_sfc.sql'))
@@ -232,12 +280,19 @@ class PackageBuilder(unittest.TestCase):
             with open(os.path.join(self.dest, rel), 'rb') as fh:
                 self.assertEqual(hashlib.sha256(fh.read()).hexdigest(), digest, rel)
 
-    def test_packaged_sql_equals_source(self):
+    def test_packaged_sql_is_the_source_in_cp949(self):
         for f in os.listdir(SQL_DIR):
             if f.endswith('.sql'):
-                with open(os.path.join(SQL_DIR, f), 'rb') as a, \
+                with open(os.path.join(SQL_DIR, f), encoding='utf-8') as a, \
                         open(os.path.join(self.dest, 'sql', f), 'rb') as b:
-                    self.assertEqual(a.read().replace(b'\r\n', b'\n'), b.read(), f)
+                    want = a.read().replace('\r\n', '\n').encode('cp949')
+                    got = b.read()
+                    self.assertEqual(got, want, f)
+                    self.assertEqual(cp949_malformed(got), 0, f)
+        # the packaged bytes are not UTF-8: that is the point of the conversion
+        with open(os.path.join(self.dest, 'sql', '23_functions.sql'), 'rb') as fh:
+            with self.assertRaises(UnicodeDecodeError):
+                fh.read().decode('utf-8')
 
     def test_unlisted_sql_file_stops_the_build(self):
         import importlib.util

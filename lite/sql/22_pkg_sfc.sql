@@ -1,115 +1,111 @@
--- OCS-LITE step 4 (run as SFC_OWNER)
+@@05_check_charset.sql
+-- OCS-LITE 4단계 (SFC_OWNER 로 접속)
 --
--- PKG_SFC: the whole module in one package.
+-- PKG_SFC: 모듈 전체를 담은 패키지입니다.
 --
--- Blob layout (same as the full edition, so data can move between them):
---   ver(1) | alg(1) | key_id(2) | iv(16) | AES-256-CBC ciphertext | HMAC-SHA256 tag(32)
--- The tag covers everything before it. It is verified before decrypting.
--- Strings are always UTF-8 regardless of the database character set.
--- Stored form is the upper-case hex of the blob: a 13-char value gives 136 hex chars.
+-- 암호문 형식은 전체판과 같아서 자료를 서로 옮길 수 있습니다.
+--   버전(1) | 알고리즘(1) | 키 번호(2) | IV(16) | AES-256-CBC 암호문 | HMAC-SHA256 태그(32)
+-- 태그는 앞의 모든 바이트에 대한 값이며 복호화 전에 먼저 검증합니다.
+-- 문자열은 데이터베이스 문자집합과 관계없이 항상 UTF-8 로 다룹니다.
+-- 저장 형태는 암호문을 대문자 16진수로 쓴 문자열입니다. 13글자 값은 136자가 됩니다.
 --
--- Nobody but the owner is granted this package. Applications call the FN_SFC_*
--- functions of 23_functions.sql, which are the only entry points.
+-- 이 패키지는 소유 계정 외에는 누구에게도 권한을 주지 않습니다. 응용은 23_functions.sql 의
+-- FN_SFC_* 함수만 호출합니다.
 --
--- Errors (all raised, never swallowed):
---   -20601 bad argument      -20602 key not ready / seal mismatch
---   -20603 integrity failed  -20604 bad ciphertext format
---   -20605 wrong state (init_key twice, rotate_key without a key)
+-- 오류는 모두 예외로 던집니다 (오류 번호는 아래 명세 참조).
 
 CREATE OR REPLACE PACKAGE PKG_SFC AS
 
-  -- Error numbers raised by this package (see the manual, chapter 7).
-  --   e_bad_arg     the call itself is wrong: empty password, text too long, unknown mask type
-  --   e_no_key      no active key yet, key id not found, or the key table does not match the seal
-  --   e_integrity   the ciphertext was altered or was made with another key
-  --   e_bad_format  the value is not a ciphertext of this module (not hex, too short, wrong version)
-  --   e_state       init_key run twice, or rotate_key run before init_key
+  -- 이 패키지가 일으키는 오류 번호입니다 (안내서 제7장 참조).
+  --   e_bad_arg     호출이 잘못됨: 빈 비밀번호, 너무 긴 평문, 알 수 없는 마스킹 유형
+  --   e_no_key      활성 키가 없음, 키 번호를 찾을 수 없음, 키 테이블과 봉인값이 맞지 않음
+  --   e_integrity   암호문이 변조되었거나 다른 키로 만든 값임
+  --   e_bad_format  이 모듈의 암호문이 아님: 16진수가 아니거나, 너무 짧거나, 버전이 다름
+  --   e_state       init_key 를 두 번 실행했거나, init_key 전에 rotate_key 를 실행함
   e_bad_arg    CONSTANT PLS_INTEGER := -20601;
   e_no_key     CONSTANT PLS_INTEGER := -20602;
   e_integrity  CONSTANT PLS_INTEGER := -20603;
   e_bad_format CONSTANT PLS_INTEGER := -20604;
   e_state      CONSTANT PLS_INTEGER := -20605;
 
-  -- Number of PBKDF2 rounds used for NEW password hashes.
-  -- Existing hashes keep the number they were made with and stay valid.
-  -- To change it: edit this value, recompile this package, update the manual (section 4.2).
+  -- 새로 만드는 비밀번호 해시에 쓰는 PBKDF2 반복 횟수입니다.
+  -- 이미 저장된 해시는 만들 때의 횟수를 그대로 가지며 계속 유효합니다.
+  -- 바꾸려면 이 값을 고치고, 이 패키지를 다시 컴파일하고, 안내서 4.2절의 숫자를 고칩니다.
   c_pwd_iterations CONSTANT PLS_INTEGER := 10000;
 
-  -- ===== Identification numbers (two-way) ==================================
-  -- Applications should call the FN_SFC_* functions, not this package.
+  -- ===== 식별번호 (양방향) =================================================
+  -- 응용은 이 패키지가 아니라 FN_SFC_* 함수를 호출합니다.
 
-  -- encrypt_hex: protect a short text such as a resident registration number or account number.
-  --   p_plain  the text. NULL in, NULL out. At most 1900 bytes in UTF-8 (Korean = 3 bytes per character).
-  --   p_iv     for tests only. Leave NULL; a new random value is used on every call.
-  -- Returns    upper-case hex string. A 13-character value gives 136 characters, so size the
-  --            target column accordingly (manual, chapter 2). The same text gives a different
-  --            result on every call, so the result cannot be used in a WHERE condition.
-  -- Raises     -20601 text too long, -20602 no usable key.
+  -- encrypt_hex: 주민등록번호, 계좌번호 같은 짧은 문자열을 암호화합니다.
+  --   p_plain  평문. NULL 이면 NULL 을 돌려줍니다. UTF-8 로 1900바이트 이하 (한글은 글자당 3바이트).
+  --   p_iv     시험 전용입니다. NULL 로 두면 호출마다 새 난수를 씁니다.
+  -- 반환       대문자 16진 문자열. 13글자 값이면 136자이므로 저장할 컬럼 길이를 맞춰 두십시오
+  --            (안내서 제2장). 같은 평문도 호출마다 결과가 달라 WHERE 조건에는 쓸 수 없습니다.
+  -- 오류       -20601 평문이 너무 김, -20602 사용할 수 있는 키가 없음.
   FUNCTION encrypt_hex(p_plain IN VARCHAR2, p_iv IN RAW DEFAULT NULL) RETURN VARCHAR2;
 
-  -- decrypt_hex: get the original text back from a value made by encrypt_hex.
-  --   p_hex    the stored value. NULL in, NULL out.
-  -- Returns    the original text.
-  -- Raises     -20604 not a value of this module (for example a column that is too short and
-  --            cut the value), -20603 altered value, -20602 key not found.
+  -- decrypt_hex: encrypt_hex 로 만든 값에서 원래 문자열을 되돌립니다.
+  --   p_hex    저장된 값. NULL 이면 NULL 을 돌려줍니다.
+  -- 반환       원래 문자열.
+  -- 오류       -20604 이 모듈의 값이 아님 (예: 컬럼이 짧아 값이 잘림), -20603 변조된 값,
+  --            -20602 키를 찾을 수 없음.
   FUNCTION decrypt_hex(p_hex   IN VARCHAR2) RETURN VARCHAR2;
 
-  -- mask_hex: decrypt a stored value and return it with part of it hidden.
-  --   p_hex    the stored value. NULL in, NULL out.
-  --   p_type   RRN      13 digits: first 6 digits, hyphen, then 7 asterisks (900101-*******)
-  --                     other lengths: all hidden
-  --            ACCOUNT  first 4 characters shown, the rest replaced by asterisks
-  --                     4 characters or fewer: all hidden
-  --            ALL      always ********   (default)
-  -- Returns    the masked text.
-  -- Raises     -20601 unknown p_type, plus the errors of decrypt_hex.
+  -- mask_hex: 저장된 값을 복호화해 일부를 가려서 돌려줍니다.
+  --   p_hex    저장된 값. NULL 이면 NULL 을 돌려줍니다.
+  --   p_type   RRN      숫자 13자리: 앞 6자리, 하이픈, 별표 7개 (900101-*******)
+  --                     자리수가 다르면 전부 가림
+  --            ACCOUNT  앞 4글자만 보이고 나머지는 별표. 4글자 이하이면 전부 가림
+  --            ALL      항상 ******** (기본값)
+  -- 반환       가려진 문자열.
+  -- 오류       -20601 알 수 없는 p_type, 그리고 decrypt_hex 의 오류.
   FUNCTION mask_hex(p_hex IN VARCHAR2, p_type IN VARCHAR2 DEFAULT 'ALL') RETURN VARCHAR2;
 
-  -- mask_value: same masking as mask_hex, for a plain text you already have.
-  --   p_plain  the plain text. NULL in, NULL out.
-  --   p_type   RRN | ACCOUNT | ALL, as in mask_hex.
-  -- Raises     -20601 unknown p_type.
+  -- mask_value: mask_hex 와 같은 가림 규칙을, 이미 가지고 있는 평문에 적용합니다.
+  --   p_plain  평문. NULL 이면 NULL 을 돌려줍니다.
+  --   p_type   RRN | ACCOUNT | ALL (mask_hex 와 같음).
+  -- 오류       -20601 알 수 없는 p_type.
   FUNCTION mask_value(p_plain IN VARCHAR2, p_type IN VARCHAR2 DEFAULT 'ALL') RETURN VARCHAR2;
 
-  -- ===== Passwords (one-way) ===============================================
+  -- ===== 비밀번호 (일방향) =================================================
 
-  -- pwd_hash_hex: make the value to store for a password. It cannot be turned back into the password.
-  --   p_password  the password. NULL or empty is refused.
-  --   p_salt      for tests only. Leave NULL; a new random value is used on every call.
-  --   p_iter      number of rounds. Leave NULL to use c_pwd_iterations. The owner may pass a number
-  --               to time a candidate value without changing anything.
-  -- Returns       108-character hex string. Calling twice with the same password gives different
-  --               results; that is expected. Use pwd_verify_hex to check a password.
-  -- Raises        -20601 empty password, rounds below 1, or salt that is not 16 bytes.
+  -- pwd_hash_hex: 비밀번호로 저장할 값을 만듭니다. 이 값에서 비밀번호를 되돌릴 수 없습니다.
+  --   p_password  비밀번호. NULL 이나 빈 문자열은 거부합니다.
+  --   p_salt      시험 전용입니다. NULL 로 두면 호출마다 새 난수를 씁니다.
+  --   p_iter      반복 횟수. NULL 이면 c_pwd_iterations 를 씁니다. 소유 계정은 이 값을 지정해
+  --               아무것도 바꾸지 않고 후보 횟수의 소요 시간을 잴 수 있습니다.
+  -- 반환          108자 16진 문자열. 같은 비밀번호도 호출마다 결과가 다른 것이 정상입니다.
+  --               비밀번호 확인은 pwd_verify_hex 로 합니다.
+  -- 오류          -20601 빈 비밀번호, 반복 횟수가 1 미만, 솔트가 16바이트가 아님.
   FUNCTION pwd_hash_hex(p_password IN VARCHAR2,
                         p_salt     IN RAW         DEFAULT NULL,
                         p_iter     IN PLS_INTEGER DEFAULT NULL) RETURN VARCHAR2;
 
-  -- pwd_verify_hex: check a password against the stored value.
-  --   p_password    the password the user typed.
-  --   p_stored_hex  the value made by pwd_hash_hex.
-  -- Returns         1 when it matches, otherwise 0. A NULL argument or a damaged stored value
-  --                 also gives 0; this function does not raise for bad input.
+  -- pwd_verify_hex: 저장된 값과 비밀번호가 맞는지 확인합니다.
+  --   p_password    사용자가 입력한 비밀번호.
+  --   p_stored_hex  pwd_hash_hex 로 만든 값.
+  -- 반환            맞으면 1, 아니면 0. 인자가 NULL 이거나 저장값이 깨져 있어도 0 이며,
+  --                 잘못된 입력에 대해 오류를 던지지 않습니다.
   FUNCTION pwd_verify_hex(p_password IN VARCHAR2, p_stored_hex IN VARCHAR2) RETURN NUMBER;
 
-  -- ===== Key management (run as the owner account; each call commits) ======
+  -- ===== 키 관리 (소유 계정으로 실행, 호출마다 커밋) =======================
 
-  -- init_key: create the first key. Run once, right after installation (30_init_key.sql).
-  --           Back up the database afterwards.
-  -- Raises    -20605 when a key already exists.
+  -- init_key: 첫 키를 만듭니다. 설치 직후 한 번만 실행합니다 (30_init_key.sql).
+  --           끝나면 데이터베이스를 백업하십시오.
+  -- 오류      -20605 이미 키가 있음.
   PROCEDURE init_key;
 
-  -- rotate_key: start using a new key. The previous key is kept so older data still decrypts.
-  --             Existing data keeps the old key until it is encrypted again (manual, chapter 6).
-  -- Raises      -20605 when no key exists yet.
+  -- rotate_key: 새 키를 쓰기 시작합니다. 이전 키는 남겨 두어 기존 자료를 계속 복호화합니다.
+  --             기존 자료는 다시 암호화하기 전까지 이전 키를 그대로 씁니다 (안내서 제6장).
+  -- 오류        -20605 아직 키가 없음.
   PROCEDURE rotate_key;
 
-  -- is_ready: 1 when encryption can be used right now, otherwise 0. Never raises.
-  --           Suitable for monitoring.
+  -- is_ready: 지금 암호화를 쓸 수 있으면 1, 아니면 0. 오류를 던지지 않습니다.
+  --           감시에 쓰기 알맞습니다.
   FUNCTION  is_ready RETURN NUMBER;
 
-  -- ===== Test hooks ========================================================
-  -- Used only by 50_selftest.sql. Not for application use.
+  -- ===== 시험용 =============================================================
+  -- 50_selftest.sql 만 사용합니다. 응용에서 쓰지 마십시오.
   FUNCTION derive(p_root IN RAW, p_label IN VARCHAR2) RETURN RAW;
   FUNCTION pack_with_root(p_root IN RAW, p_key_id IN PLS_INTEGER,
                           p_plain IN VARCHAR2, p_iv IN RAW DEFAULT NULL) RETURN RAW;
@@ -127,9 +123,9 @@ CREATE OR REPLACE PACKAGE BODY PKG_SFC AS
   c_iv_len   CONSTANT PLS_INTEGER := 16;
   c_tag_len  CONSTANT PLS_INTEGER := 32;
   c_hdr_len  CONSTANT PLS_INTEGER := 4;
-  c_min_len  CONSTANT PLS_INTEGER := 68;     -- hdr 4 + iv 16 + one block 16 + tag 32
-  c_max_blob CONSTANT PLS_INTEGER := 2000;   -- a hex string must fit in 4000 chars
-  c_max_plain CONSTANT PLS_INTEGER := 1900;  -- plaintext bytes, leaves room for header, padding, tag
+  c_min_len  CONSTANT PLS_INTEGER := 68;     -- 헤더 4 + IV 16 + 암호 블록 1개 16 + 태그 32
+  c_max_blob CONSTANT PLS_INTEGER := 2000;   -- 16진 문자열이 4000자 안에 들어가야 합니다
+  c_max_plain CONSTANT PLS_INTEGER := 1900;  -- 평문 바이트 수. 헤더, 패딩, 태그가 들어갈 자리를 남긴 값입니다
   c_aes      CONSTANT PLS_INTEGER :=
     DBMS_CRYPTO.ENCRYPT_AES256 + DBMS_CRYPTO.CHAIN_CBC + DBMS_CRYPTO.PAD_PKCS5;
 
@@ -146,14 +142,14 @@ CREATE OR REPLACE PACKAGE BODY PKG_SFC AS
 
   TYPE t_keys IS RECORD (enc_key RAW(32), mac_key RAW(32));
   TYPE t_key_cache IS TABLE OF t_keys INDEX BY PLS_INTEGER;
-  g_cache t_key_cache;   -- derived keys per key id, kept for the session only
+  g_cache t_key_cache;   -- 키 번호별로 유도한 키. 세션이 끝나면 사라집니다
 
   PROCEDURE fail(p_code IN PLS_INTEGER, p_msg IN VARCHAR2) IS
   BEGIN
     RAISE_APPLICATION_ERROR(p_code, p_msg);
   END fail;
 
-  -- byte helpers -----------------------------------------------------------
+  -- 바이트 도우미 -----------------------------------------------------------
   FUNCTION byte_of(p_n IN PLS_INTEGER) RETURN RAW IS
   BEGIN
     RETURN UTL_RAW.SUBSTR(UTL_RAW.CAST_FROM_BINARY_INTEGER(p_n), 4, 1);
@@ -169,7 +165,7 @@ CREATE OR REPLACE PACKAGE BODY PKG_SFC AS
     RETURN UTL_RAW.CAST_FROM_BINARY_INTEGER(p_n);
   END dword_of;
 
-  -- big-endian unsigned integer from 1 to 4 bytes
+  -- 1~4바이트 빅엔디언 부호 없는 정수
   FUNCTION int_of(p_r IN RAW) RETURN PLS_INTEGER IS
     v_len PLS_INTEGER := NVL(UTL_RAW.LENGTH(p_r), 0);
   BEGIN
@@ -182,7 +178,7 @@ CREATE OR REPLACE PACKAGE BODY PKG_SFC AS
              UTL_RAW.CONCAT(UTL_RAW.COPIES(HEXTORAW('00'), 4 - v_len), p_r));
   END int_of;
 
-  -- equal-length comparison that does not stop at the first difference
+  -- 길이가 같은 두 값을 끝까지 비교합니다. 처음 다른 곳에서 멈추지 않습니다
   FUNCTION const_eq(p_a IN RAW, p_b IN RAW) RETURN BOOLEAN IS
   BEGIN
     IF p_a IS NULL OR p_b IS NULL THEN
@@ -224,7 +220,7 @@ CREATE OR REPLACE PACKAGE BODY PKG_SFC AS
     RETURN hmac(UTL_RAW.CAST_TO_RAW(p_label), p_root);
   END derive;
 
-  -- blob ---------------------------------------------------------------------
+  -- 암호문 ---------------------------------------------------------------------
   FUNCTION pack_raw(p_plain IN RAW, p_key_id IN PLS_INTEGER,
                     p_enc_key IN RAW, p_mac_key IN RAW, p_iv IN RAW) RETURN RAW IS
     v_iv     RAW(16);
@@ -266,7 +262,7 @@ CREATE OR REPLACE PACKAGE BODY PKG_SFC AS
     v_len    := UTL_RAW.LENGTH(p_blob);
     v_signed := UTL_RAW.SUBSTR(p_blob, 1, v_len - c_tag_len);
     v_tag    := UTL_RAW.SUBSTR(p_blob, v_len - c_tag_len + 1, c_tag_len);
-    -- verify first: a failed tag means no decryption is attempted
+    -- 태그 검증이 먼저입니다. 실패하면 복호화를 시도하지 않습니다
     IF NOT const_eq(hmac(v_signed, p_mac_key), v_tag) THEN
       fail(e_integrity, 'integrity check failed');
     END IF;
@@ -276,7 +272,7 @@ CREATE OR REPLACE PACKAGE BODY PKG_SFC AS
     RETURN DBMS_CRYPTO.DECRYPT(src => v_ct, typ => c_aes, key => p_enc_key, iv => v_iv);
   END unpack_raw;
 
-  -- test hooks / seal wrapping -------------------------------------------------
+  -- 시험용 / 봉인값 감싸기 -------------------------------------------------
   FUNCTION pack_with_root(p_root IN RAW, p_key_id IN PLS_INTEGER,
                           p_plain IN VARCHAR2, p_iv IN RAW DEFAULT NULL) RETURN RAW IS
   BEGIN
@@ -299,7 +295,7 @@ CREATE OR REPLACE PACKAGE BODY PKG_SFC AS
     RETURN unpack_raw(p_blob, derive(p_seal, c_lbl_seal_enc), derive(p_seal, c_lbl_seal_mac));
   END unwrap_root;
 
-  -- keys -------------------------------------------------------------------------
+  -- 키 -------------------------------------------------------------------------
   FUNCTION load_keys(p_key_id IN PLS_INTEGER) RETURN t_keys IS
     v_wrapped RAW(256);
     v_root    RAW(32);
@@ -366,7 +362,7 @@ CREATE OR REPLACE PACKAGE BODY PKG_SFC AS
     IF v_n = 0 THEN
       fail(e_state, 'no active key, use init_key');
     END IF;
-    -- the old key stays (state OLD) so existing data still decrypts
+    -- 이전 키는 OLD 상태로 남겨 기존 자료를 계속 복호화합니다
     UPDATE SFC_KEY SET key_state = 'OLD', retired_at = SYSTIMESTAMP
      WHERE key_state = 'ACTIVE';
     new_key;
@@ -383,7 +379,7 @@ CREATE OR REPLACE PACKAGE BODY PKG_SFC AS
       RETURN 0;
   END is_ready;
 
-  -- two-way ------------------------------------------------------------------------
+  -- 양방향 ------------------------------------------------------------------------
   FUNCTION encrypt_hex(p_plain IN VARCHAR2, p_iv IN RAW DEFAULT NULL) RETURN VARCHAR2 IS
     v_id    PLS_INTEGER;
     v_keys  t_keys;
@@ -410,7 +406,7 @@ CREATE OR REPLACE PACKAGE BODY PKG_SFC AS
     END IF;
     v_blob := hex_to_raw(p_hex);
     check_blob(v_blob);
-    -- the header tells which key made this blob, which is what lets old data survive rotate_key
+    -- 헤더의 키 번호로 어느 키로 만든 값인지 알 수 있어, 키를 교체해도 기존 자료를 읽을 수 있습니다
     v_keys := load_keys(int_of(UTL_RAW.SUBSTR(v_blob, 3, 2)));
     RETURN from_utf8(unpack_raw(v_blob, v_keys.enc_key, v_keys.mac_key));
   END decrypt_hex;
@@ -427,13 +423,13 @@ CREATE OR REPLACE PACKAGE BODY PKG_SFC AS
       RETURN NULL;
     END IF;
     IF v_type = 'RRN' THEN
-      -- 13 digits: keep the birth date part, hide the last seven
+      -- 13자리: 앞 여섯 자리만 남기고 뒤 일곱 자리를 가립니다
       v_digits := REGEXP_REPLACE(p_plain, '[^0-9]', '');
       IF LENGTH(v_digits) = 13 THEN
         RETURN SUBSTR(v_digits, 1, 6) || '-*******';
       END IF;
     ELSIF v_type = 'ACCOUNT' THEN
-      -- keep the first four characters only
+      -- 앞 네 글자만 남깁니다
       v_len := LENGTH(p_plain);
       IF v_len > 4 THEN
         RETURN SUBSTR(p_plain, 1, 4) || RPAD('*', v_len - 4, '*');
@@ -447,12 +443,12 @@ CREATE OR REPLACE PACKAGE BODY PKG_SFC AS
     RETURN mask_value(decrypt_hex(p_hex), p_type);
   END mask_hex;
 
-  -- one-way --------------------------------------------------------------------------
+  -- 일방향 --------------------------------------------------------------------------
   FUNCTION pbkdf2_sha256(p_password IN RAW, p_salt IN RAW, p_iterations IN PLS_INTEGER) RETURN RAW IS
     v_u RAW(32);
     v_t RAW(32);
   BEGIN
-    -- output length equals the hash length, so there is exactly one block
+    -- 출력 길이가 해시 길이와 같아 블록이 하나뿐입니다
     v_u := hmac(UTL_RAW.CONCAT(p_salt, HEXTORAW('00000001')), p_password);
     v_t := v_u;
     FOR i IN 2 .. p_iterations LOOP
@@ -468,7 +464,7 @@ CREATE OR REPLACE PACKAGE BODY PKG_SFC AS
     v_salt RAW(16);
     v_iter PLS_INTEGER;
   BEGIN
-    -- NULL also covers the empty string, which Oracle treats as NULL
+    -- 오라클은 빈 문자열을 NULL 로 다루므로 빈 비밀번호도 여기서 걸러집니다
     IF p_password IS NULL THEN
       fail(e_bad_arg, 'empty password is not allowed');
     END IF;
@@ -494,7 +490,7 @@ CREATE OR REPLACE PACKAGE BODY PKG_SFC AS
     IF p_password IS NULL OR p_stored_hex IS NULL THEN
       RETURN 0;
     END IF;
-    -- a malformed stored value is a failed check, not an error
+    -- 형식이 깨진 저장값은 오류가 아니라 불일치로 처리합니다
     BEGIN
       v_stored := HEXTORAW(p_stored_hex);
     EXCEPTION

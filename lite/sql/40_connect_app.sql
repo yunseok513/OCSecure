@@ -1,10 +1,12 @@
--- OCS-LITE step 7 (run as SYS): let one business schema use the module
+@@05_check_charset.sql
+-- OCS-LITE 7단계 (SYS 로 접속): 업무 스키마 하나가 모듈을 쓸 수 있게 합니다.
 --
--- Usage:  @40_connect_app.sql <app_schema>
+-- 사용법:  @40_connect_app.sql <업무 스키마>
 --
--- The schema gets EXECUTE on the FN_SFC_* functions and a synonym for each, so that
--- queries can say FN_SFC_ENC(col) with no prefix. It gets nothing else: no access
--- to SFC_KEY, to PKG_SFC or to SFC_SEAL. To remove it: 41_disconnect_app.sql.
+-- 업무 스키마는 FN_SFC_* 함수의 실행 권한과 함수마다 시노님을 받습니다. 그래서
+-- 쿼리에서 접두어 없이 FN_SFC_ENC(컬럼) 처럼 쓸 수 있습니다. 그 밖의 권한은 주지
+-- 않습니다. SFC_KEY, PKG_SFC, SFC_SEAL 에는 접근하지 못합니다.
+-- 연결을 끊으려면 41_disconnect_app.sql 을 실행합니다.
 
 WHENEVER SQLERROR EXIT FAILURE
 SET VERIFY OFF
