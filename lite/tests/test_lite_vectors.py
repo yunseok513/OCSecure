@@ -496,5 +496,21 @@ class OracleAcceptanceScripts(unittest.TestCase):
         self.assertNotIn('PUT(SFC_OWNER', t2)
 
 
+class MeasuredPasswordTiming(unittest.TestCase):
+    """The measured times reported from the test instance must be recorded the same way in both documents."""
+
+    def test_measurements_are_recorded_consistently(self):
+        manual = open(os.path.join(ROOT, 'lite', 'docs', '04_안내서.md'), encoding='utf-8').read()
+        record = open(os.path.join(ROOT, 'lite', 'docs', '05_검증기록.md'), encoding='utf-8').read()
+        for t in ('0.48초', '5.10초', '31.11초'):
+            self.assertIn(t, manual)
+            self.assertIn(t, record)
+
+    def test_measurements_are_proportional_to_the_iteration_count(self):
+        """Sanity check of the reported figures: about 50 microseconds per round at every size."""
+        for n, secs in ((10000, 0.48), (100000, 5.10), (600000, 31.11)):
+            self.assertAlmostEqual(secs / n * 1e6, 50, delta=5)
+
+
 if __name__ == '__main__':
     unittest.main()
