@@ -411,5 +411,74 @@ class SecondReviewFindings(unittest.TestCase):
         self.assertNotIn('서로 옮길 수 있습니다', read('22_pkg_sfc.sql'))
 
 
+class OracleAcceptanceScripts(unittest.TestCase):
+    """lite/tests/oracle/*.sql are run by hand on a test instance. They cannot be compiled here,
+    so guard against the mistakes that can be seen without Oracle."""
+
+    dir = os.path.join(ROOT, 'lite', 'tests', 'oracle')
+    names = sorted(f for f in os.listdir(dir) if f.endswith('.sql')) if os.path.isdir(dir) else []
+
+    def text(self, name):
+        with open(os.path.join(self.dir, name), encoding='utf-8') as fh:
+            return fh.read()
+
+    def test_scripts_exist(self):
+        self.assertEqual([n[:2] for n in self.names], ['T1', 'T2', 'T3', 'T4', 'T5', 'T6'])
+
+    def test_ascii_only_so_nls_lang_does_not_matter(self):
+        for n in self.names:
+            with open(os.path.join(self.dir, n), 'rb') as fh:
+                fh.read().decode('ascii')
+
+    def test_no_subquery_inside_a_plsql_expression(self):
+        """PLS-00405: a subquery is not allowed in an expression, only as SELECT ... INTO."""
+        for n in self.names:
+            code = lint_plsql.strip_comments(self.text(n))
+            for m in re.finditer(r'(chk|PUT_LINE|TO_CHAR)\s*\(', code):
+                depth, i, call = 1, m.end(), ''
+                while i < len(code) and depth:
+                    depth += {'(': 1, ')': -1}.get(code[i], 0)
+                    call += code[i]
+                    i += 1
+                self.assertNotRegex(call, r'\(\s*SELECT\b', n + ': ' + call[:60])
+
+    def test_no_privileged_views(self):
+        for n in self.names:
+            self.assertNotRegex(self.text(n), r'(?i)\bv\$|\bdba_', n)
+
+    def test_scripts_stop_on_error_and_raise_on_failure(self):
+        for n in self.names:
+            code = lint_plsql.strip_comments(self.text(n))
+            self.assertIn('WHENEVER SQLERROR EXIT FAILURE', code, n)
+        for n in ('T1_decode_check.sql', 'T2_app_calls.sql', 'T4_rotate_key.sql', 'T5_verify_after.sql'):
+            self.assertIn('RAISE_APPLICATION_ERROR(-20990', self.text(n), n)
+
+    def test_t1_tests_the_query_printed_in_the_manual(self):
+        manual = open(os.path.join(ROOT, 'lite', 'docs', '04_안내서.md'), encoding='utf-8').read()
+        clause = 'DECODE(FN_SFC_DEC(rrn_enc), rrn, 0, 1) = 1'
+        self.assertIn(clause, manual)
+        self.assertIn(clause, self.text('T1_decode_check.sql'))
+
+    def test_t1_expected_rows(self):
+        """The five rows of T1 and the ids they must produce, modelled with DECODE semantics."""
+        rows = {1: ('9001011234567', '9001011234567'), 2: ('9001011234568', None),
+                3: (None, '9001011234569'), 4: ('9001011234570', '9001011234571'), 5: (None, None)}
+        flagged = [i for i, (rrn, dec) in rows.items() if (0 if dec == rrn else 1) == 1]
+        self.assertEqual(flagged, [2, 3, 4])
+        self.assertIn("'2,3,4'", self.text('T1_decode_check.sql'))
+
+    def test_t4_is_marked_test_only_and_irreversible(self):
+        t4 = self.text('T4_rotate_key.sql')
+        self.assertIn('TEST INSTANCE ONLY', t4)
+        self.assertIn('CANNOT be undone', t4)
+
+    def test_t2_negative_checks_do_not_fail_for_the_wrong_reason(self):
+        """The refused calls must not be type errors that would fail even with privileges."""
+        t2 = self.text('T2_app_calls.sql')
+        self.assertIn('n := SFC_OWNER.PKG_SFC.is_ready', t2)
+        self.assertIn('r := SFC_OWNER.SFC_SEAL.get_seal', t2)
+        self.assertNotIn('PUT(SFC_OWNER', t2)
+
+
 if __name__ == '__main__':
     unittest.main()
