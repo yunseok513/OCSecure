@@ -467,6 +467,22 @@ class OracleAcceptanceScripts(unittest.TestCase):
         self.assertEqual(flagged, [2, 3, 4])
         self.assertIn("'2,3,4'", self.text('T1_decode_check.sql'))
 
+    def test_t2_refuses_the_two_misuses_that_look_like_module_defects(self):
+        t2 = self.text('T2_app_calls.sql')
+        self.assertIn("SESSION_USER') = 'SFC_OWNER'", t2)
+        self.assertIn('session_privs', t2)
+        self.assertIn('SELECT ANY TABLE', t2)
+        self.assertIn('EXECUTE ANY PROCEDURE', t2)
+        self.assertGreaterEqual(t2.count('RAISE_APPLICATION_ERROR(-20991'), 2)
+        # the guards come before the first check
+        self.assertLess(t2.index('-20991'), t2.index("chk('C1"))
+
+    def test_runbook_tells_which_schema_runs_t2(self):
+        with open(os.path.join(self.dir, 'README.md'), encoding='utf-8') as fh:
+            r = fh.read()
+        self.assertIn('소유 계정(`SFC_OWNER`)이 아닌 업무 스키마', r)
+        self.assertIn('SFC_T_APP', r)
+
     def test_t4_is_marked_test_only_and_irreversible(self):
         t4 = self.text('T4_rotate_key.sql')
         self.assertIn('TEST INSTANCE ONLY', t4)

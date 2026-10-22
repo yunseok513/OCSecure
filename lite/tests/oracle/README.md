@@ -19,9 +19,16 @@ cd lite\tests\oracle        (리눅스: cd lite/tests/oracle)
 | 7 | 재기동 뒤 복호화 | `SFC_OWNER` | 재기동 후 새 창에서 `@T5_verify_after.sql` | `T5 OK (3 rows)` |
 | 8 | 재컴파일 때 `ORA-04068` | 두 창 | 아래 8번 | 오류 메시지를 그대로 기록 |
 | 9 | 백업 복구본에서 복호화 | `SFC_OWNER` (복구본) | 아래 9번 | `T5 OK (3 rows)` |
-| 10 | 정리 | `SFC_OWNER` | `@T6_cleanup.sql` | `T6 done` |
+| 10 | 정리 | `SFC_OWNER`, `SYS` | `@T6_cleanup.sql`, 시험용 스키마를 만들었다면 `DROP USER SFC_T_APP CASCADE;` | `T6 done` |
 
-2번은 먼저 `SYS`에서 `@40_connect_app.sql 업무스키마`를 실행해 두어야 합니다(설치 순서 7번). 실패하거나 오류가 나면 거기서 멈추고 출력 전체를 알려 주십시오. 뒤 항목은 앞 항목에 기대지 않는 것이 대부분이지만 5~10번은 순서대로 해야 합니다. 10번은 9번까지 끝낸 뒤에 합니다. 복구 시험이 5번에서 만든 표를 쓰기 때문입니다.
+2번은 **소유 계정(`SFC_OWNER`)이 아닌 업무 스키마**에서 실행해야 합니다. 소유 계정은 자기 키 테이블을 읽을 수 있는 것이 설계이므로, 소유 계정으로 돌리면 "거부되어야 하는" 4건이 실패합니다. 업무 스키마에 `DBA` 롤이나 `SELECT ANY TABLE`, `EXECUTE ANY PROCEDURE` 권한이 있어도 같은 이유로 실패합니다. 스크립트가 두 경우를 먼저 감지해 `ORA-20991`과 이유를 알려 줍니다. 마땅한 스키마가 없으면 시험용 스키마를 하나 만들어 쓰십시오. `SYS`로 접속해 PDB에서 실행합니다.
+
+```sql
+CREATE USER SFC_T_APP IDENTIFIED BY "Str0ng#Passw0rd" QUOTA 1M ON USERS;
+GRANT CREATE SESSION TO SFC_T_APP;
+```
+
+이어서 설치 패키지의 `sql` 폴더에서 `@40_connect_app.sql SFC_T_APP`를 실행하고, `SFC_T_APP`로 접속해 `@T2_app_calls.sql`을 실행합니다. 이 스키마는 10번 정리 때 `DROP USER SFC_T_APP CASCADE;`로 지웁니다. 40번을 실행하지 않았다면 T2가 시노님을 찾지 못해 `PLS-00201`로 시작도 못 하는 것이 정상입니다. 실패하거나 오류가 나면 거기서 멈추고 출력 전체를 알려 주십시오. 뒤 항목은 앞 항목에 기대지 않는 것이 대부분이지만 5~10번은 순서대로 해야 합니다. 10번은 9번까지 끝낸 뒤에 합니다. 복구 시험이 5번에서 만든 표를 쓰기 때문입니다.
 
 ## 3. 비밀번호 해시 소요 시간
 

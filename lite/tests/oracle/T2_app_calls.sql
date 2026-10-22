@@ -1,7 +1,10 @@
 -- OCS-LITE acceptance check T2: the business schema can use the six functions and nothing else
 --
--- Run as the BUSINESS SCHEMA that 40_connect_app.sql was run for (not as SFC_OWNER).
--- Writes nothing. The last four checks must be REFUSED by Oracle.
+-- Run as the BUSINESS SCHEMA that 40_connect_app.sql was run for. NOT as SFC_OWNER: the owner
+-- may read its own key table by design, so the four "must be refused" checks would fail.
+-- The schema must also have no SELECT ANY TABLE / EXECUTE ANY PROCEDURE (for example through
+-- the DBA role); this script stops with ORA-20991 and says why if either condition is not met.
+-- Writes nothing.
 
 SET SERVEROUTPUT ON SIZE UNLIMITED
 SET FEEDBACK OFF
@@ -12,6 +15,7 @@ DECLARE
   g_fail PLS_INTEGER := 0;
   v_hex  VARCHAR2(400);
   v_pwd  VARCHAR2(200);
+  v_n    NUMBER;
 
   PROCEDURE chk(p_name IN VARCHAR2, p_ok IN BOOLEAN) IS
   BEGIN
@@ -34,6 +38,17 @@ DECLARE
   END code_of;
 BEGIN
   DBMS_OUTPUT.PUT_LINE('--- running as ' || SYS_CONTEXT('USERENV', 'SESSION_USER'));
+  IF SYS_CONTEXT('USERENV', 'SESSION_USER') = 'SFC_OWNER' THEN
+    RAISE_APPLICATION_ERROR(-20991,
+      'T2 must run as a business schema, not as SFC_OWNER. The owner can read its own key table by design.');
+  END IF;
+  SELECT COUNT(*) INTO v_n FROM session_privs
+   WHERE privilege IN ('SELECT ANY TABLE', 'EXECUTE ANY PROCEDURE');
+  IF v_n > 0 THEN
+    RAISE_APPLICATION_ERROR(-20991,
+      'This schema has SELECT ANY TABLE or EXECUTE ANY PROCEDURE (check roles such as DBA). '
+      || 'Use a schema without them, otherwise checks C9 to C12 fail for that reason.');
+  END IF;
   chk('C1 FN_SFC_READY is 1', FN_SFC_READY = 1);
   v_hex := FN_SFC_ENC('9001011234567');
   chk('C2 encrypt then decrypt', FN_SFC_DEC(v_hex) = '9001011234567');
