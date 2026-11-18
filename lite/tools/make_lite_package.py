@@ -12,6 +12,8 @@
 패키지 구성
   안내서.md          lite/docs/04_안내서.md (설치와 유지보수 안내서)
   설계결정.md        lite/docs/02_설계결정.md (방어 한계와 고객 고지 문안)
+  운영_확인절차.md   운영 환경 설치 뒤 확인 절차 (상태를 바꾸지 않는 확인만)
+  checks/            확인 스크립트 T1 T2 T3 T5 T6 (키 교체 T4 는 일부러 뺌)
   sql/               설치 스크립트. 저장소 원본은 UTF-8 이며 패키지에는 CP949 로 바꿔 담는다
   tools/verify_manifest.py   온전성 확인 (전체판의 도구를 그대로 쓴다)
   VERSION, MANIFEST.sha256
@@ -37,8 +39,19 @@ LITE = os.path.join(ROOT, 'lite')
 FILES = {
     os.path.join('lite', 'docs', '04_안내서.md'): '안내서.md',
     os.path.join('lite', 'docs', '02_설계결정.md'): '설계결정.md',
+    os.path.join('lite', 'docs', '06_운영확인절차.md'): '운영_확인절차.md',
     os.path.join('tools', 'verify_manifest.py'): os.path.join('tools', 'verify_manifest.py'),
 }
+
+# 운영 환경에서 실행해도 되는 확인 스크립트. 데이터베이스의 상태를 되돌릴 수 없게 바꾸는
+# T4(키 교체)는 일부러 뺀다. 시험 인스턴스 전용이며 lite/tests/oracle 에만 둔다.
+CHECK_FILES = [
+    'T1_decode_check.sql',
+    'T2_app_calls.sql',
+    'T3_prepare.sql',
+    'T5_verify_after.sql',
+    'T6_cleanup.sql',
+]
 
 # 설치에 쓰는 SQL. 번호 순서가 곧 실행 순서다.
 SQL_FILES = [
@@ -213,7 +226,12 @@ def make_zip(dest, zip_path):
             for f in sorted(files):
                 full = os.path.join(b, f)
                 z.write(full, os.path.join(base, os.path.relpath(full, dest)))
+    with open(zip_path, 'rb') as fh:
+        digest = hashlib.sha256(fh.read()).hexdigest()
+    with open(zip_path + '.sha256', 'w', encoding='utf-8', newline='\n') as fh:
+        fh.write('%s  %s\n' % (digest, os.path.basename(zip_path)))
     log('[정상] 압축 파일: ' + os.path.relpath(zip_path, ROOT))
+    log('[정상] 압축 파일의 해시: ' + os.path.basename(zip_path) + '.sha256 (반입 뒤 sha256sum -c 로 확인)')
 
 
 def main():
@@ -244,7 +262,9 @@ def main():
         copy(src, dest, dst)
     for f in SQL_FILES:
         copy_sql(os.path.join('lite', 'sql', f), dest, os.path.join('sql', f))
-    log('[정상] 파일 %d개를 담았다' % (len(FILES) + len(SQL_FILES)))
+    for f in CHECK_FILES:
+        copy(os.path.join('lite', 'tests', 'oracle', f), dest, os.path.join('checks', f))
+    log('[정상] 파일 %d개를 담았다' % (len(FILES) + len(SQL_FILES) + len(CHECK_FILES)))
 
     check_cp949(dest)
     check_manual_paths(dest)

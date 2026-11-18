@@ -1,10 +1,10 @@
 -- OCS-LITE acceptance check T2: the business schema can use the six functions and nothing else
 --
 -- Run as the BUSINESS SCHEMA that 40_connect_app.sql was run for. NOT as SFC_OWNER: the owner
--- may read its own key table by design, so the four "must be refused" checks would fail.
+-- may read its own key table by design, so the three "must be refused" checks would fail.
 -- The schema must also have no SELECT ANY TABLE / EXECUTE ANY PROCEDURE (for example through
 -- the DBA role); this script stops with ORA-20991 and says why if either condition is not met.
--- Writes nothing.
+-- Writes nothing, and no check here tries an operation that would change anything if it were allowed.
 
 SET SERVEROUTPUT ON SIZE UNLIMITED
 SET FEEDBACK OFF
@@ -47,7 +47,7 @@ BEGIN
   IF v_n > 0 THEN
     RAISE_APPLICATION_ERROR(-20991,
       'This schema has SELECT ANY TABLE or EXECUTE ANY PROCEDURE (check roles such as DBA). '
-      || 'Use a schema without them, otherwise checks C9 to C12 fail for that reason.');
+      || 'Use a schema without them, otherwise checks C9 to C11 fail for that reason.');
   END IF;
   chk('C1 FN_SFC_READY is 1', FN_SFC_READY = 1);
   v_hex := FN_SFC_ENC('9001011234567');
@@ -67,8 +67,6 @@ BEGIN
       code_of('DECLARE n NUMBER; BEGIN n := SFC_OWNER.PKG_SFC.is_ready; END;') IN (-6550, -942));
   chk('C11 SFC_SEAL cannot be called',
       code_of('DECLARE r RAW(32); BEGIN r := SFC_OWNER.SFC_SEAL.get_seal; END;') IN (-6550, -942));
-  chk('C12 init_key cannot be called',
-      code_of('BEGIN SFC_OWNER.PKG_SFC.init_key; END;') IN (-6550, -942));
 
   DBMS_OUTPUT.PUT_LINE('--- pass ' || g_pass || ', fail ' || g_fail);
   IF g_fail > 0 THEN

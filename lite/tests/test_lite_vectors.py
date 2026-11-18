@@ -259,7 +259,10 @@ class PackageBuilder(unittest.TestCase):
 
     def test_contents_are_exactly_the_install_set(self):
         sql = {'sql/' + f for f in os.listdir(SQL_DIR) if f.endswith('.sql')}
-        want = sql | {'안내서.md', '설계결정.md', 'tools/verify_manifest.py', 'VERSION', 'MANIFEST.sha256'}
+        checks = {'checks/' + f for f in ('T1_decode_check.sql', 'T2_app_calls.sql', 'T3_prepare.sql',
+                                           'T5_verify_after.sql', 'T6_cleanup.sql')}
+        want = sql | checks | {'안내서.md', '설계결정.md', '운영_확인절차.md', 'tools/verify_manifest.py',
+                                'VERSION', 'MANIFEST.sha256'}
         self.assertEqual(self.rel_files(), want)
 
     def test_no_test_or_reference_code_inside(self):
@@ -474,6 +477,8 @@ class OracleAcceptanceScripts(unittest.TestCase):
         self.assertIn('SELECT ANY TABLE', t2)
         self.assertIn('EXECUTE ANY PROCEDURE', t2)
         self.assertGreaterEqual(t2.count('RAISE_APPLICATION_ERROR(-20991'), 2)
+        self.assertNotIn('init_key', lint_plsql.strip_comments(t2))   # never try a state-changing call
+        self.assertEqual(len(re.findall(r"chk\('C\d+", t2)), 11)
         # the guards come before the first check
         self.assertLess(t2.index('-20991'), t2.index("chk('C1"))
 
@@ -510,6 +515,48 @@ class MeasuredPasswordTiming(unittest.TestCase):
         """Sanity check of the reported figures: about 50 microseconds per round at every size."""
         for n, secs in ((10000, 0.48), (100000, 5.10), (600000, 31.11)):
             self.assertAlmostEqual(secs / n * 1e6, 50, delta=5)
+
+
+class ProductionBundle(unittest.TestCase):
+    """What goes into the bundle that is carried into the closed network."""
+
+    builder = open(os.path.join(ROOT, 'lite', 'tools', 'make_lite_package.py'), encoding='utf-8').read()
+    doc = open(os.path.join(ROOT, 'lite', 'docs', '06_운영확인절차.md'), encoding='utf-8').read()
+
+    def test_irreversible_checks_are_not_in_the_bundle(self):
+        block = self.builder[self.builder.index('CHECK_FILES = ['):]
+        block = block[:block.index(']')]
+        self.assertNotIn('T4', block)
+        self.assertNotIn('rotate', block)
+        self.assertNotIn('90_uninstall', block)
+        for f in ('T1', 'T2', 'T3', 'T5', 'T6'):
+            self.assertIn(f + '_', block)
+
+    def test_every_packaged_check_does_not_change_keys(self):
+        """No packaged check may call rotate_key / init_key / drop anything but its own test table."""
+        oracle = os.path.join(ROOT, 'lite', 'tests', 'oracle')
+        for f in ('T1_decode_check.sql', 'T2_app_calls.sql', 'T3_prepare.sql', 'T5_verify_after.sql', 'T6_cleanup.sql'):
+            with open(os.path.join(oracle, f), encoding='utf-8') as fh:
+                code = lint_plsql.strip_comments(fh.read())
+            self.assertNotRegex(code, r'(?i)rotate_key|init_key|DROP\s+USER|TRUNCATE|UPDATE\s+SFC_KEY|DELETE\s+FROM\s+SFC_KEY', f)
+            for m in re.finditer(r'(?i)DROP\s+TABLE\s+(\w+)', code):
+                self.assertIn(m.group(1).upper(), ('SFC_T_DECODE', 'SFC_T_PERSIST'), f)
+
+    def test_procedure_names_each_check_and_forbids_the_dangerous_ones(self):
+        for f in ('T1_decode_check.sql', 'T2_app_calls.sql', 'T3_prepare.sql', 'T5_verify_after.sql', 'T6_cleanup.sql'):
+            self.assertIn(f, self.doc)
+        self.assertIn('T4', self.doc)                       # explained as deliberately left out
+        self.assertIn('90_uninstall.sql', self.doc)
+        self.assertIn('운영에서는 실행하지 마십시오', self.doc)
+        self.assertIn('NLS_LANG=KOREAN_KOREA.KO16MSWIN949', self.doc)
+
+    def test_procedure_lists_what_was_never_verified(self):
+        for phrase in ('키 교체', 'ORA-04068', '백업 복구본', '반복 횟수의 운영값'):
+            self.assertIn(phrase, self.doc)
+
+    def test_zip_gets_its_own_hash_file(self):
+        self.assertIn(".sha256', 'w'", self.builder)
+        self.assertIn('zip_path + \'.sha256\'', self.builder)
 
 
 if __name__ == '__main__':

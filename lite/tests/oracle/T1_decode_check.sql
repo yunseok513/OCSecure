@@ -1,6 +1,7 @@
 -- OCS-LITE acceptance check T1: the conversion check query of manual section 4.3
 --
--- TEST INSTANCE ONLY. Run as SFC_OWNER. Creates and drops its own table SFC_T_DECODE.
+-- Safe on a test instance and in production: it changes no key. Run as SFC_OWNER. It creates and
+-- drops only its own table SFC_T_DECODE.
 -- Five rows cover every NULL combination. The query used here is the one printed in
 -- the manual (DECODE form); rows 2, 3 and 4 must be counted, rows 1 and 5 must not.
 

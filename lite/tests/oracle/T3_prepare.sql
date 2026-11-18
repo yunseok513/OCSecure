@@ -1,7 +1,8 @@
 -- OCS-LITE acceptance check T3: leave ciphertext behind for the restart, rotation and restore checks
 --
--- TEST INSTANCE ONLY. Run as SFC_OWNER. Creates table SFC_T_PERSIST and stores two values
--- encrypted with the CURRENT key. T4, T5 and T6 use this table. Run T3 once.
+-- Safe on a test instance and in production: it changes no key. Run as SFC_OWNER. It creates table
+-- SFC_T_PERSIST and stores two values encrypted with the CURRENT key. T5 and T6 use this table
+-- (and T4, which exists on test instances only). Run T3 once; T6 removes the table.
 
 SET SERVEROUTPUT ON SIZE UNLIMITED
 SET FEEDBACK OFF

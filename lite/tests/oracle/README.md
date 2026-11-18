@@ -11,7 +11,7 @@ cd lite\tests\oracle        (리눅스: cd lite/tests/oracle)
 | 순서 | 확인 항목 | 접속 | 실행 | 기대 결과 |
 |---|---|---|---|---|
 | 1 | 전환 검증 질의(`DECODE`) | `SFC_OWNER` | `@T1_decode_check.sql` | `PASS T1 …` 와 `rows counted by the manual query : 3 (ids 2,3,4)` |
-| 2 | 업무 스키마의 함수 호출과 접근 차단 | 업무 스키마 | `@T2_app_calls.sql` | `--- pass 12, fail 0` 와 `T2 OK` |
+| 2 | 업무 스키마의 함수 호출과 접근 차단 | 업무 스키마 | `@T2_app_calls.sql` | `--- pass 11, fail 0` 와 `T2 OK` |
 | 3 | 비밀번호 해시 소요 시간 | `SFC_OWNER` | 아래 3번 | 시간(초)을 기록 |
 | 4 | 문자집합 점검이 어긋난 창에서 멈춤 | `SYS` | 아래 4번 | `ORA-20999` 후 SQL*Plus 종료 |
 | 5 | 시험 자료 준비 | `SFC_OWNER` | `@T3_prepare.sql` | 두 행, 키 번호 표시 |
@@ -21,7 +21,7 @@ cd lite\tests\oracle        (리눅스: cd lite/tests/oracle)
 | 9 | 백업 복구본에서 복호화 | `SFC_OWNER` (복구본) | 아래 9번 | `T5 OK (3 rows)` |
 | 10 | 정리 | `SFC_OWNER`, `SYS` | `@T6_cleanup.sql`, 시험용 스키마를 만들었다면 `DROP USER SFC_T_APP CASCADE;` | `T6 done` |
 
-2번은 **소유 계정(`SFC_OWNER`)이 아닌 업무 스키마**에서 실행해야 합니다. 소유 계정은 자기 키 테이블을 읽을 수 있는 것이 설계이므로, 소유 계정으로 돌리면 "거부되어야 하는" 4건이 실패합니다. 업무 스키마에 `DBA` 롤이나 `SELECT ANY TABLE`, `EXECUTE ANY PROCEDURE` 권한이 있어도 같은 이유로 실패합니다. 스크립트가 두 경우를 먼저 감지해 `ORA-20991`과 이유를 알려 줍니다. 마땅한 스키마가 없으면 시험용 스키마를 하나 만들어 쓰십시오. `SYS`로 접속해 PDB에서 실행합니다.
+2번은 **소유 계정(`SFC_OWNER`)이 아닌 업무 스키마**에서 실행해야 합니다. 소유 계정은 자기 키 테이블을 읽을 수 있는 것이 설계이므로, 소유 계정으로 돌리면 "거부되어야 하는" 3건이 실패합니다. 업무 스키마에 `DBA` 롤이나 `SELECT ANY TABLE`, `EXECUTE ANY PROCEDURE` 권한이 있어도 같은 이유로 실패합니다. 스크립트가 두 경우를 먼저 감지해 `ORA-20991`과 이유를 알려 줍니다. 마땅한 스키마가 없으면 시험용 스키마를 하나 만들어 쓰십시오. `SYS`로 접속해 PDB에서 실행합니다.
 
 ```sql
 CREATE USER SFC_T_APP IDENTIFIED BY "Str0ng#Passw0rd" QUOTA 1M ON USERS;
